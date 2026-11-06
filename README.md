@@ -42,39 +42,7 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 
 ## Architecture & PayPal Integration
 
-```
-                         ┌──────────────────────────────────────────────┐
-                         │       Meta Ray-Ban Display Glasses           │
-                         │  • Left-frame Camera (15 FPS HEVC stream)    │
-                         │  • Waveguide Optical HUD (Meta FlexBox DSL)  │
-                         │  • Temple Touchpad & Microphone Audio        │
-                         └──────────────────────┬───────────────────────┘
-                                                │ Bluetooth (BLE & BTC RFCOMM)
-                                                ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              AirWallet Android Companion App                            │
-│                                                                                        │
-│   ┌───────────────────────────┐                     ┌──────────────────────────────┐   │
-│   │   FastQrScanner (ML Kit)  │ ──<50ms Extract───> │     QrCodeAnalyzer Engine    │   │
-│   └───────────────────────────┘                     └──────────────┬───────────────┘   │
-│                                                                    │                   │
-│   ┌───────────────────────────┐                     ┌──────────────▼───────────────┐   │
-│   │ FinancialAiEngine(LiteRT) │ <──Spending Graph── │       CameraViewModel        │   │
-│   │ • On-Device TFLite Model  │                     │ • Capability Orchestrator    │   │
-│   │ • Voice Q&A Intent Parser │ ───HUD Cards/TTS──> │ • Touchpad Event Router      │   │
-│   └───────────────────────────┘                     └──────────────┬───────────────┘   │
-└────────────────────────────────────────────────────────────────────┼───────────────────┘
-                                                                     │ HTTPS REST
-                                                                     ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               PayPal Developer Platform                                │
-│                                                                                        │
-│   • PayPal Vault API         : Stored payment tokens for 1-tap wearable capture        │
-│   • PayPal Orders v2 API     : Order creation & capture with itemized line items       │
-│   • PayPal Invoicing v2 API  : Multi-party group bill splitting & payment requests    │
-│   • PayPal Payouts v1 API    : Voice-triggered peer disbursements                      │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
+![AirWallet Architecture](docs/architecture.jpg)
 
 ---
 
