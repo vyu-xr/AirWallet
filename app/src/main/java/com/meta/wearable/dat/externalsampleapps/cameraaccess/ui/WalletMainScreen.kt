@@ -730,12 +730,12 @@ private fun WalletHomeScreen(
           ) {
             Icon(
                 imageVector = Icons.Default.AutoAwesome,
-                contentDescription = "Muse Spark",
+                contentDescription = "Visual AI",
                 tint = AppColor.Coral,
                 modifier = Modifier.size(12.dp)
             )
             Text(
-                text = if (cameraViewModel.museSparkService.hasApiKey()) "Muse Live" else "Muse Demo",
+                text = if (cameraViewModel.museSparkService.hasApiKey()) "Gemini Live" else "Gemini Demo",
                 color = AppColor.Coral,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
@@ -1021,7 +1021,7 @@ private fun WalletHomeScreen(
             )
             Column {
               Text("Scan Object", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              Text("Muse Spark • Visual Shop", color = AppColor.Coral, fontSize = 9.sp)
+              Text("Gemini Flash • Visual Shop", color = AppColor.Coral, fontSize = 9.sp)
             }
           }
         }
@@ -1048,7 +1048,7 @@ private fun WalletHomeScreen(
             )
             Column {
               Text("Scan Bill", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              Text("Muse Spark • OCR Split", color = AppColor.Lime, fontSize = 9.sp)
+              Text("Gemini Flash • OCR Split", color = AppColor.Lime, fontSize = 9.sp)
             }
           }
         }
@@ -4002,7 +4002,7 @@ fun MuseSparkResultDialog(
             }
             Column {
               Text(
-                  text = "Meta Muse Spark",
+                  text = "Google Gemini 2.0 Flash",
                   fontSize = 15.sp,
                   fontWeight = FontWeight.Bold,
                   color = AppColor.TextPrimary,
@@ -4099,7 +4099,7 @@ fun MuseSparkResultDialog(
                 modifier = Modifier.size(42.dp),
             )
             Text(
-                text = ui.museSparkLoadingPrompt.ifBlank { "Processing frame with Meta Muse Spark..." },
+                text = ui.museSparkLoadingPrompt.ifBlank { "Processing frame with Google Gemini 2.0 Flash..." },
                 color = AppColor.TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -4384,13 +4384,13 @@ fun MuseSparkApiKeyDialog(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Icon(Icons.Default.Key, contentDescription = null, tint = AppColor.Coral, modifier = Modifier.size(20.dp))
-          Text("Meta Muse Spark API Key", color = AppColor.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+          Text("Google Gemini 2.0 Flash API Key", color = AppColor.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
       },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-              text = "Model: muse-spark-1.3-contributor (95% discount tier: $0.10/M tokens). Enter your Meta Model API key for live multimodal processing.",
+              text = "Model: Google Gemini 2.0 Flash (Free API tier via Google AI Studio). Paste your key below for 100% free live multimodal recognition.",
               color = AppColor.TextSecondary,
               fontSize = 12.sp,
               lineHeight = 16.sp,
@@ -4398,7 +4398,7 @@ fun MuseSparkApiKeyDialog(
           OutlinedTextField(
               value = keyText,
               onValueChange = { keyText = it },
-              placeholder = { Text("Paste API Key here (or leave blank for Demo mode)", color = AppColor.TextMuted, fontSize = 11.sp) },
+              placeholder = { Text("Paste Google Gemini API Key (or leave blank for Demo mode)", color = AppColor.TextMuted, fontSize = 11.sp) },
               modifier = Modifier.fillMaxWidth(),
               singleLine = true,
               colors = OutlinedTextFieldDefaults.colors(
@@ -4409,7 +4409,7 @@ fun MuseSparkApiKeyDialog(
               ),
           )
           Text(
-              text = "Leave empty to use built-in Smart Demo / Offline mode for instant hackathon evaluation.",
+              text = "Get a free key instantly with no credit card at aistudio.google.com/apikey. Leave empty to use built-in Smart Demo mode.",
               color = AppColor.Lime,
               fontSize = 11.sp,
           )

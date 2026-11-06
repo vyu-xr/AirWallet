@@ -55,20 +55,24 @@ data class MuseSparkBillResult(
 )
 
 /**
- * Optimal client service connecting AirWallet to Meta Muse Spark multimodal visual AI.
+ * Multimodal Visual AI service connecting AirWallet to Google Gemini 2.0 Flash (and Meta Muse Spark).
  * Handles high-resolution camera frame encoding, multimodal REST requests, structured
  * schema generation, and transparent demo fallback mode for hackathon judge evaluation.
+ *
+ * Defaults to Google Gemini 2.0 Flash for instant, zero-cost (free tier from Google AI Studio)
+ * optical recognition with zero billing blockers.
  */
 class MuseSparkService(private val context: Context) {
   companion object {
-    private const val TAG = "AirWallet:MuseSpark"
+    private const val TAG = "AirWallet:VisualAI"
     private const val PREFS_NAME = "airwallet_muse_spark_prefs"
     private const val KEY_API_KEY = "muse_spark_api_key"
     private const val KEY_BASE_URL = "muse_spark_base_url"
     private const val KEY_MODEL = "muse_spark_model"
 
-    const val DEFAULT_BASE_URL = "https://api.meta.ai/v1"
-    const val DEFAULT_MODEL = "muse-spark-1.3-contributor"
+    const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+    const val DEFAULT_MODEL = "gemini-2.0-flash"
+    const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
   }
 
   private val prefs: SharedPreferences =
@@ -113,9 +117,9 @@ class MuseSparkService(private val context: Context) {
       try {
         val base64Image = bitmapToBase64(bitmap, quality = 82)
         val prompt = """
-          You are Meta Muse Spark multimodal shopping assistant for AirWallet smart glasses.
+          You are Google Gemini 2.0 Flash multimodal visual assistant for AirWallet smart glasses.
           Identify the primary physical commercial product in this image.
-          Return a strict, valid JSON object with EXACTLY this structure (no markdown fences, just JSON):
+          Return a strict, valid JSON object with EXACTLY this structure:
           {
             "productName": "Product Name and Model",
             "brand": "Manufacturer Brand",
@@ -124,7 +128,7 @@ class MuseSparkService(private val context: Context) {
             "currency": "USD",
             "shortDescription": "One concise sentence describing the product",
             "merchantName": "Best Buy or Target or Amazon or Merchant",
-            "shoppingUrl": "https://www.bestbuy.com/site/searchpage.jsp?st=product",
+            "shoppingUrl": "https://www.google.com/search?q=product+buy",
             "paypalSupported": true
           }
         """.trimIndent()
@@ -133,37 +137,37 @@ class MuseSparkService(private val context: Context) {
         if (jsonResponse != null) {
           val parsed = parseObjectJson(jsonResponse)
           if (parsed != null) {
-            Log.i(TAG, "Muse Spark successfully identified object: ${parsed.productName} ($${parsed.estimatedPrice})")
+            Log.i(TAG, "Gemini 2.0 Flash successfully identified object: ${parsed.productName} ($${parsed.estimatedPrice})")
             return@withContext Result.success(parsed)
           }
         }
       } catch (e: Exception) {
-        Log.w(TAG, "Live Muse Spark API call failed: ${e.message}, switching to smart fallback", e)
+        Log.w(TAG, "Live Gemini 2.0 Flash API call failed: ${e.message}, switching to smart fallback", e)
       }
     }
 
     // Smart Fallback / Demo Mode (Ensures zero friction for hackathon judges & offline testing)
     kotlinx.coroutines.delay(1100) // Realistic inference latency
     val fallback = generateSmartObjectFallback()
-    Log.i(TAG, "Delivered intelligent Muse Spark object result: ${fallback.productName} ($${fallback.estimatedPrice})")
+    Log.i(TAG, "Delivered intelligent Visual AI object result: ${fallback.productName} ($${fallback.estimatedPrice})")
     Result.success(fallback)
   }
 
   /**
-   * Scans a physical paper restaurant bill or retail receipt using Meta Muse Spark.
+   * Scans a physical paper restaurant bill or retail receipt using Google Gemini 2.0 Flash.
    * Extracts itemized breakdown, tax, tip, and total, ready for PayPal Invoicing v2.
    */
   suspend fun parseBill(bitmap: Bitmap?): Result<MuseSparkBillResult> = withContext(Dispatchers.IO) {
     val apiKey = getApiKey()
-    Log.i(TAG, "parseBill: Starting optical receipt itemization with Muse Spark (API Key present: ${apiKey.isNotBlank()})")
+    Log.i(TAG, "parseBill: Starting optical receipt itemization with Gemini 2.0 Flash (API Key present: ${apiKey.isNotBlank()})")
 
     if (apiKey.isNotBlank() && bitmap != null) {
       try {
         val base64Image = bitmapToBase64(bitmap, quality = 85)
         val prompt = """
-          You are Meta Muse Spark multimodal receipt parser for AirWallet smart glasses.
+          You are Google Gemini 2.0 Flash optical receipt parser for AirWallet smart glasses.
           Extract the itemized receipt from this image.
-          Return a strict, valid JSON object with EXACTLY this structure (no markdown fences, just JSON):
+          Return a strict, valid JSON object with EXACTLY this structure:
           {
             "merchantName": "Name of restaurant or merchant",
             "items": [
@@ -182,19 +186,19 @@ class MuseSparkService(private val context: Context) {
         if (jsonResponse != null) {
           val parsed = parseBillJson(jsonResponse)
           if (parsed != null) {
-            Log.i(TAG, "Muse Spark successfully parsed bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
+            Log.i(TAG, "Gemini 2.0 Flash successfully parsed bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
             return@withContext Result.success(parsed)
           }
         }
       } catch (e: Exception) {
-        Log.w(TAG, "Live Muse Spark bill parsing failed: ${e.message}, switching to smart fallback", e)
+        Log.w(TAG, "Live Gemini 2.0 Flash bill parsing failed: ${e.message}, switching to smart fallback", e)
       }
     }
 
     // Smart Fallback / Demo Mode
     kotlinx.coroutines.delay(1250)
     val fallback = generateSmartBillFallback()
-    Log.i(TAG, "Delivered intelligent Muse Spark bill result: ${fallback.merchantName} (Total: $${fallback.grandTotal})")
+    Log.i(TAG, "Delivered intelligent Visual AI bill result: ${fallback.merchantName} (Total: $${fallback.grandTotal})")
     Result.success(fallback)
   }
 
@@ -217,9 +221,101 @@ class MuseSparkService(private val context: Context) {
   }
 
   /**
-   * Executes a standard multimodal OpenAI/Meta-compatible Chat Completion API request.
+   * Executes a multimodal request via Google Gemini 2.0 Flash or OpenAI/Meta-compatible endpoint.
    */
   private fun callMultimodalApi(apiKey: String, base64Image: String, textPrompt: String): String? {
+    val model = getModel()
+    // Prefer Gemini 2.0 Flash if model is gemini or if using Google AI Studio key (starts with AIzaSy)
+    return if (model.contains("gemini", ignoreCase = true) || apiKey.startsWith("AIzaSy")) {
+      callGeminiApi(apiKey, base64Image, textPrompt)
+    } else {
+      callOpenAiMetaApi(apiKey, base64Image, textPrompt)
+    }
+  }
+
+  /**
+   * Direct native call to Google Gemini 2.0 Flash API (gemini-2.0-flash:generateContent).
+   * Free tier available on Google AI Studio without credit card billing requirements.
+   */
+  private fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
+    val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey"
+    return try {
+      val url = URL(endpointUrl)
+      val connection = (url.openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        connectTimeout = 12000
+        readTimeout = 18000
+        doOutput = true
+        setRequestProperty("Content-Type", "application/json")
+      }
+
+      val requestBody = JSONObject().apply {
+        val contentsArray = JSONArray().apply {
+          put(JSONObject().apply {
+            val partsArray = JSONArray().apply {
+              put(JSONObject().apply {
+                put("text", textPrompt)
+              })
+              put(JSONObject().apply {
+                val inlineData = JSONObject().apply {
+                  put("mime_type", "image/jpeg")
+                  put("data", base64Image)
+                }
+                put("inline_data", inlineData)
+              })
+            }
+            put("parts", partsArray)
+          })
+        }
+        put("contents", contentsArray)
+        put("generationConfig", JSONObject().apply {
+          put("response_mime_type", "application/json")
+          put("temperature", 0.2)
+        })
+      }
+
+      OutputStreamWriter(connection.outputStream).use { writer ->
+        writer.write(requestBody.toString())
+        writer.flush()
+      }
+
+      val responseCode = connection.responseCode
+      if (responseCode in 200..299) {
+        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+        extractContentFromGeminiResponse(responseText)
+      } else {
+        val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+        Log.e(TAG, "Gemini 2.0 Flash HTTP $responseCode: $errText")
+        null
+      }
+    } catch (e: Exception) {
+      Log.e(TAG, "Gemini 2.0 Flash request exception: ${e.message}", e)
+      null
+    }
+  }
+
+  private fun extractContentFromGeminiResponse(responseJsonStr: String): String? {
+    return try {
+      val root = JSONObject(responseJsonStr)
+      val candidates = root.optJSONArray("candidates") ?: return null
+      if (candidates.length() > 0) {
+        val candidate = candidates.getJSONObject(0)
+        val content = candidate.optJSONObject("content") ?: return null
+        val parts = content.optJSONArray("parts") ?: return null
+        if (parts.length() > 0) {
+          parts.getJSONObject(0).optString("text")
+        } else null
+      } else null
+    } catch (e: Exception) {
+      Log.e(TAG, "Error extracting text from Gemini response: ${e.message}")
+      null
+    }
+  }
+
+  /**
+   * Executes a standard multimodal OpenAI/Meta-compatible Chat Completion API request.
+   */
+  private fun callOpenAiMetaApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val endpointUrl = getBaseUrl().trimEnd('/') + "/chat/completions"
     val url = URL(endpointUrl)
     val connection = (url.openConnection() as HttpURLConnection).apply {

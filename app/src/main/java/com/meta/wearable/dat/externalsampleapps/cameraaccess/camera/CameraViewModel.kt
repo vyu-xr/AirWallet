@@ -852,15 +852,15 @@ class CameraViewModel(
   // MARK: - Meta Muse Spark Multimodal Visual AI Workflows
 
   /**
-   * Scans a physical product in view using Meta Muse Spark multimodal visual AI.
+   * Scans a physical product in view using Google Gemini 2.0 Flash multimodal visual AI.
    * Identifies product details, best merchant prices, and enables 1-tap PayPal capture.
    */
   fun onScanObjectClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
-    Log.i(TAG, "onScanObjectClicked: Triggering Meta Muse Spark visual product search")
+    Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search")
     _uiState.update {
       it.copy(
           isMuseSparkLoading = true,
-          museSparkLoadingPrompt = "Analyzing product with Meta Muse Spark...",
+          museSparkLoadingPrompt = "Analyzing product with Google Gemini 2.0 Flash...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_OBJECT,
           showMuseSparkDialog = true,
           museSparkActiveTab = "object",
@@ -868,7 +868,7 @@ class CameraViewModel(
       )
     }
     renderGlassesScreen()
-    voicePrompter.speak("Looking up product with Muse Spark.")
+    voicePrompter.speak("Looking up product with Gemini Flash.")
 
     viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
@@ -878,14 +878,14 @@ class CameraViewModel(
             targetBitmap = decodePhoto(photoData)
           }
         } catch (e: Exception) {
-          Log.w(TAG, "Could not capture glasses photo for Muse Spark: ${e.message}")
+          Log.w(TAG, "Could not capture glasses photo for Visual AI: ${e.message}")
         }
       }
 
       val result = museSparkService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
-          Log.i(TAG, "Muse Spark found: ${obj.productName} for $${obj.estimatedPrice}")
+          Log.i(TAG, "Gemini Flash found: ${obj.productName} for $${obj.estimatedPrice}")
           _uiState.update {
             it.copy(
                 isMuseSparkLoading = false,
@@ -895,7 +895,7 @@ class CameraViewModel(
           renderGlassesScreen()
           voicePrompter.speak("Found ${obj.productName} for $${obj.estimatedPrice.toInt()} dollars at ${obj.merchantName}. Tap to buy with PayPal.")
         }.onFailure { err ->
-          Log.e(TAG, "Muse Spark object identification error: ${err.message}")
+          Log.e(TAG, "Gemini Flash object identification error: ${err.message}")
           _uiState.update { it.copy(isMuseSparkLoading = false) }
           renderGlassesScreen()
         }
@@ -904,15 +904,15 @@ class CameraViewModel(
   }
 
   /**
-   * Scans a physical paper restaurant bill or store receipt using Meta Muse Spark.
+   * Scans a physical paper restaurant bill or store receipt using Google Gemini 2.0 Flash.
    * Extracts itemized breakdown, tax, tip, and prepares PayPal Invoicing v2 split.
    */
   fun onScanBillClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
-    Log.i(TAG, "onScanBillClicked: Triggering Meta Muse Spark receipt parsing")
+    Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing")
     _uiState.update {
       it.copy(
           isMuseSparkLoading = true,
-          museSparkLoadingPrompt = "Parsing paper bill with Meta Muse Spark...",
+          museSparkLoadingPrompt = "Parsing paper bill with Google Gemini 2.0 Flash...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_BILL,
           showMuseSparkDialog = true,
           museSparkActiveTab = "bill",
@@ -920,7 +920,7 @@ class CameraViewModel(
       )
     }
     renderGlassesScreen()
-    voicePrompter.speak("Scanning bill with Muse Spark.")
+    voicePrompter.speak("Scanning bill with Gemini Flash.")
 
     viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
@@ -3342,14 +3342,14 @@ class CameraViewModel(
                 }
               }
               GlassesDisplayScreen.SCAN_OBJECT -> {
-                text("Muse Spark • Visual Shop", style = TextStyle.HEADING)
+                text("Gemini Flash • Visual Shop", style = TextStyle.HEADING)
                 val objResult = _uiState.value.museSparkObjectResult
                 val isLoading = _uiState.value.isMuseSparkLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
                     text("Scanning product...", style = TextStyle.BODY)
-                    text("Muse Spark Multimodal Visual AI", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Google Gemini 2.0 Flash Multimodal AI", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",
@@ -3370,7 +3370,7 @@ class CameraViewModel(
                       style = ButtonStyle.PRIMARY,
                       iconName = IconName.CHECKMARK,
                       onClick = {
-                        Log.i(TAG, "1-Tap Pay via PayPal clicked for Muse Spark object")
+                        Log.i(TAG, "1-Tap Pay via PayPal clicked for Visual AI object")
                         viewModelScope.launch(Dispatchers.Main) { executeMuseSparkObjectPurchase() }
                       }
                   )
@@ -3402,14 +3402,14 @@ class CameraViewModel(
                 }
               }
               GlassesDisplayScreen.SCAN_BILL -> {
-                text("Muse Spark • Bill Split", style = TextStyle.HEADING)
+                text("Gemini Flash • Bill Split", style = TextStyle.HEADING)
                 val billResult = _uiState.value.museSparkBillResult
                 val isLoading = _uiState.value.isMuseSparkLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
                     text("Parsing receipt line items...", style = TextStyle.BODY)
-                    text("Muse Spark Multimodal OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Google Gemini 2.0 Flash OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",
