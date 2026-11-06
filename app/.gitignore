@@ -1,0 +1,4 @@
+/build
+/build.nosync
+*.nosync
+.nosync
