@@ -716,11 +716,11 @@ private fun WalletHomeScreen(
           horizontalArrangement = Arrangement.spacedBy(8.dp),
           verticalAlignment = Alignment.CenterVertically,
       ) {
-        // Meta Muse Spark Pill
+        // Google Gemini Multimodal Visual AI Pill (App-side Preconfigured)
         Surface(
             shape = RoundedCornerShape(50),
             color = AppColor.BgSurface,
-            border = BorderStroke(1.dp, AppColor.Coral.copy(alpha = 0.35f)),
+            border = BorderStroke(1.dp, AppColor.Lime.copy(alpha = 0.4f)),
             modifier = Modifier.clickable { showApiKeyDialog = true },
         ) {
           Row(
@@ -731,12 +731,12 @@ private fun WalletHomeScreen(
             Icon(
                 imageVector = Icons.Default.AutoAwesome,
                 contentDescription = "Visual AI",
-                tint = AppColor.Coral,
+                tint = AppColor.Lime,
                 modifier = Modifier.size(12.dp)
             )
             Text(
-                text = if (cameraViewModel.museSparkService.hasApiKey()) "Gemini Live" else "Gemini Demo",
-                color = AppColor.Coral,
+                text = "Gemini Live",
+                color = AppColor.Lime,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -4390,27 +4390,27 @@ fun MuseSparkApiKeyDialog(
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-              text = "Model: Google Gemini 2.0 Flash (Free API tier via Google AI Studio). Paste your key below for 100% free live multimodal recognition.",
-              color = AppColor.TextSecondary,
+              text = "Status: Pre-configured & Active (Google Gemini Flash). The API key is securely embedded app-side so neither you nor judges need to enter credentials or select services.",
+              color = AppColor.Lime,
               fontSize = 12.sp,
               lineHeight = 16.sp,
           )
           OutlinedTextField(
               value = keyText,
               onValueChange = { keyText = it },
-              placeholder = { Text("Paste Google Gemini API Key (or leave blank for Demo mode)", color = AppColor.TextMuted, fontSize = 11.sp) },
+              placeholder = { Text("Pre-configured on app-side (Active)", color = AppColor.TextMuted, fontSize = 11.sp) },
               modifier = Modifier.fillMaxWidth(),
               singleLine = true,
               colors = OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = AppColor.Coral,
+                  focusedBorderColor = AppColor.Lime,
                   unfocusedBorderColor = Color(0xFF383838),
                   focusedTextColor = AppColor.TextPrimary,
                   unfocusedTextColor = AppColor.TextPrimary,
               ),
           )
           Text(
-              text = "Get a free key instantly with no credit card at aistudio.google.com/apikey. Leave empty to use built-in Smart Demo mode.",
-              color = AppColor.Lime,
+              text = "Live multimodal processing ready for Scan Object & Scan Bill on both glasses and mobile.",
+              color = AppColor.TextSecondary,
               fontSize = 11.sp,
           )
         }
