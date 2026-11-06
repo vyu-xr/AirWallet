@@ -498,6 +498,9 @@ class CameraViewModel(
   // LiteRT (TensorFlow Lite) On-Device AI Financial Intelligence Engine
   val financialAiEngine = FinancialAiEngine(application)
 
+  // Meta Muse Spark Multimodal Visual AI Engine (Cloud / Edge Hybrid)
+  val museSparkService = com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkService(application)
+
   // Display capability for payment lifecycle
   private var display: Display? = null
   private var displayStateJob: Job? = null
@@ -844,6 +847,159 @@ class CameraViewModel(
     val totalPeople = _uiState.value.billSplitSelectedFriendIds.size + 1
     val share = amount / totalPeople
     voicePrompter.speak("Amount set to $${"%.2f".format(amount)}. $${"%.2f".format(share)} each.")
+  }
+
+  // MARK: - Meta Muse Spark Multimodal Visual AI Workflows
+
+  /**
+   * Scans a physical product in view using Meta Muse Spark multimodal visual AI.
+   * Identifies product details, best merchant prices, and enables 1-tap PayPal capture.
+   */
+  fun onScanObjectClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
+    Log.i(TAG, "onScanObjectClicked: Triggering Meta Muse Spark visual product search")
+    _uiState.update {
+      it.copy(
+          isMuseSparkLoading = true,
+          museSparkLoadingPrompt = "Analyzing product with Meta Muse Spark...",
+          glassesDisplayScreen = GlassesDisplayScreen.SCAN_OBJECT,
+          showMuseSparkDialog = true,
+          museSparkActiveTab = "object",
+          museSparkObjectResult = null,
+      )
+    }
+    renderGlassesScreen()
+    voicePrompter.speak("Looking up product with Muse Spark.")
+
+    viewModelScope.launch(Dispatchers.Default) {
+      var targetBitmap: Bitmap? = bitmap
+      if (targetBitmap == null && stream != null && _uiState.value.isStreaming) {
+        try {
+          stream?.capturePhoto()?.onSuccess { photoData ->
+            targetBitmap = decodePhoto(photoData)
+          }
+        } catch (e: Exception) {
+          Log.w(TAG, "Could not capture glasses photo for Muse Spark: ${e.message}")
+        }
+      }
+
+      val result = museSparkService.identifyObject(targetBitmap)
+      withContext(Dispatchers.Main) {
+        result.onSuccess { obj ->
+          Log.i(TAG, "Muse Spark found: ${obj.productName} for $${obj.estimatedPrice}")
+          _uiState.update {
+            it.copy(
+                isMuseSparkLoading = false,
+                museSparkObjectResult = obj,
+            )
+          }
+          renderGlassesScreen()
+          voicePrompter.speak("Found ${obj.productName} for $${obj.estimatedPrice.toInt()} dollars at ${obj.merchantName}. Tap to buy with PayPal.")
+        }.onFailure { err ->
+          Log.e(TAG, "Muse Spark object identification error: ${err.message}")
+          _uiState.update { it.copy(isMuseSparkLoading = false) }
+          renderGlassesScreen()
+        }
+      }
+    }
+  }
+
+  /**
+   * Scans a physical paper restaurant bill or store receipt using Meta Muse Spark.
+   * Extracts itemized breakdown, tax, tip, and prepares PayPal Invoicing v2 split.
+   */
+  fun onScanBillClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
+    Log.i(TAG, "onScanBillClicked: Triggering Meta Muse Spark receipt parsing")
+    _uiState.update {
+      it.copy(
+          isMuseSparkLoading = true,
+          museSparkLoadingPrompt = "Parsing paper bill with Meta Muse Spark...",
+          glassesDisplayScreen = GlassesDisplayScreen.SCAN_BILL,
+          showMuseSparkDialog = true,
+          museSparkActiveTab = "bill",
+          museSparkBillResult = null,
+      )
+    }
+    renderGlassesScreen()
+    voicePrompter.speak("Scanning bill with Muse Spark.")
+
+    viewModelScope.launch(Dispatchers.Default) {
+      var targetBitmap: Bitmap? = bitmap
+      if (targetBitmap == null && stream != null && _uiState.value.isStreaming) {
+        try {
+          stream?.capturePhoto()?.onSuccess { photoData ->
+            targetBitmap = decodePhoto(photoData)
+          }
+        } catch (e: Exception) {
+          Log.w(TAG, "Could not capture glasses photo for Muse Spark bill: ${e.message}")
+        }
+      }
+
+      val result = museSparkService.parseBill(targetBitmap)
+      withContext(Dispatchers.Main) {
+        result.onSuccess { bill ->
+          Log.i(TAG, "Muse Spark parsed bill: ${bill.merchantName} (Total: $${bill.grandTotal})")
+          _uiState.update {
+            it.copy(
+                isMuseSparkLoading = false,
+                museSparkBillResult = bill,
+            )
+          }
+          renderGlassesScreen()
+          voicePrompter.speak("Parsed bill from ${bill.merchantName}. Total is $${bill.grandTotal.toInt()} dollars. Tap to split with friends.")
+        }.onFailure { err ->
+          Log.e(TAG, "Muse Spark bill parsing error: ${err.message}")
+          _uiState.update { it.copy(isMuseSparkLoading = false) }
+          renderGlassesScreen()
+        }
+      }
+    }
+  }
+
+  fun dismissMuseSparkDialog() {
+    _uiState.update { it.copy(showMuseSparkDialog = false) }
+  }
+
+  fun executeMuseSparkObjectPurchase() {
+    val objResult = _uiState.value.museSparkObjectResult ?: return
+    viewModelScope.launch(Dispatchers.Main) {
+      val amount = objResult.estimatedPrice
+      val payee = objResult.merchantName
+      val note = "Purchased ${objResult.productName} via Meta Muse Spark"
+
+      val result = payPalPaymentService.executePayment(
+          payee = payee,
+          amount = amount,
+          currency = objResult.currency,
+          note = note,
+      )
+
+      result.onSuccess { orderResult ->
+        val tx = WalletTransaction(
+            id = orderResult.transactionId,
+            merchant = payee,
+            rail = "PayPal",
+            amount = amount,
+            timestamp = System.currentTimeMillis(),
+            status = "SUCCESS",
+            fundingSource = "PayPal Vault",
+            note = note,
+            category = objResult.category,
+            referenceId = orderResult.transactionId,
+        )
+        transactionRepository.addTransaction(tx)
+        voicePrompter.speak("Paid $${"%.2f".format(amount)} to $payee with PayPal Vault.")
+        _uiState.update { it.copy(showMuseSparkDialog = false) }
+        returnToGlassesHome()
+      }.onFailure { err ->
+        Log.e(TAG, "Muse Spark purchase error: ${err.message}")
+      }
+    }
+  }
+
+  fun executeMuseSparkBillSplit() {
+    val bill = _uiState.value.museSparkBillResult ?: return
+    _uiState.update { it.copy(showMuseSparkDialog = false) }
+    openGlassesBillSplitSelection(bill.grandTotal)
   }
 
   fun openBillSplitKeypad() {
@@ -1486,7 +1642,13 @@ class CameraViewModel(
     // 3. Screen-Specific Commands
     when (currentScreen) {
       GlassesDisplayScreen.HOME -> {
-        if (lower.contains("scan") || lower.contains("qr") || lower.contains("camera")) {
+        if (lower.contains("object") || lower.contains("product") || lower.contains("buy this") || lower.contains("what is this") || lower.contains("shop")) {
+          onScanObjectClicked()
+          return
+        } else if (lower.contains("bill") || lower.contains("receipt") || lower.contains("check")) {
+          onScanBillClicked()
+          return
+        } else if (lower.contains("scan") || lower.contains("qr") || lower.contains("camera")) {
           onScanQrClicked()
           return
         } else if (lower.contains("analytic") || lower.contains("chart") || lower == "spending analytics" || lower == "view analytics") {
@@ -1498,6 +1660,30 @@ class CameraViewModel(
           return
         } else if (lower.contains("friend") || lower.contains("send") || lower.contains("contact") || lower.contains("payout")) {
           onSendMoneyClicked()
+          return
+        }
+      }
+      GlassesDisplayScreen.SCAN_OBJECT -> {
+        if (lower.contains("buy") || lower.contains("pay") || lower.contains("confirm")) {
+          executeMuseSparkObjectPurchase()
+          return
+        } else if (lower.contains("rescan") || lower.contains("again")) {
+          onScanObjectClicked()
+          return
+        } else if (lower.contains("back") || lower.contains("cancel") || lower.contains("home")) {
+          returnToGlassesHome()
+          return
+        }
+      }
+      GlassesDisplayScreen.SCAN_BILL -> {
+        if (lower.contains("split") || lower.contains("confirm") || lower.contains("invoice")) {
+          executeMuseSparkBillSplit()
+          return
+        } else if (lower.contains("rescan") || lower.contains("again")) {
+          onScanBillClicked()
+          return
+        } else if (lower.contains("back") || lower.contains("cancel") || lower.contains("home")) {
+          returnToGlassesHome()
           return
         }
       }
@@ -2663,6 +2849,24 @@ class CameraViewModel(
                     }
                 )
                 button(
+                    label = "Scan Object (Muse Spark)",
+                    style = ButtonStyle.SECONDARY,
+                    iconName = IconName.META_AI,
+                    onClick = {
+                      Log.i(TAG, "Scan Object clicked on glasses display")
+                      viewModelScope.launch(Dispatchers.Main) { onScanObjectClicked() }
+                    }
+                )
+                button(
+                    label = "Scan Bill (Muse Spark)",
+                    style = ButtonStyle.SECONDARY,
+                    iconName = IconName.SLIDERS_HORIZONTAL,
+                    onClick = {
+                      Log.i(TAG, "Scan Bill clicked on glasses display")
+                      viewModelScope.launch(Dispatchers.Main) { onScanBillClicked() }
+                    }
+                )
+                button(
                     label = "Exit Wallet",
                     style = ButtonStyle.OUTLINE,
                     onClick = {
@@ -3135,6 +3339,127 @@ class CameraViewModel(
                       viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
                     })
                   }
+                }
+              }
+              GlassesDisplayScreen.SCAN_OBJECT -> {
+                text("Muse Spark • Visual Shop", style = TextStyle.HEADING)
+                val objResult = _uiState.value.museSparkObjectResult
+                val isLoading = _uiState.value.isMuseSparkLoading
+
+                if (isLoading) {
+                  flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
+                    text("Scanning product...", style = TextStyle.BODY)
+                    text("Muse Spark Multimodal Visual AI", style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "Cancel",
+                      style = ButtonStyle.OUTLINE,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                } else if (objResult != null) {
+                  flexBox(direction = Direction.COLUMN, gap = 3, background = FlexBoxBackground.CARD, padding = 8) {
+                    text(objResult.productName, style = TextStyle.BODY)
+                    text("Best Price: $${"%.2f".format(objResult.estimatedPrice)}", style = TextStyle.HEADING)
+                    text("Merchant: ${objResult.merchantName} • PayPal Active", style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "1-Tap Pay $${"%.2f".format(objResult.estimatedPrice)} (PayPal)",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.CHECKMARK,
+                      onClick = {
+                        Log.i(TAG, "1-Tap Pay via PayPal clicked for Muse Spark object")
+                        viewModelScope.launch(Dispatchers.Main) { executeMuseSparkObjectPurchase() }
+                      }
+                  )
+                  button(
+                      label = "Rescan Object",
+                      style = ButtonStyle.SECONDARY,
+                      iconName = IconName.META_AI,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { onScanObjectClicked() }
+                      }
+                  )
+                  button(
+                      label = "Return to Home",
+                      style = ButtonStyle.OUTLINE,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                } else {
+                  button(
+                      label = "Return to Home",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                }
+              }
+              GlassesDisplayScreen.SCAN_BILL -> {
+                text("Muse Spark • Bill Split", style = TextStyle.HEADING)
+                val billResult = _uiState.value.museSparkBillResult
+                val isLoading = _uiState.value.isMuseSparkLoading
+
+                if (isLoading) {
+                  flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
+                    text("Parsing receipt line items...", style = TextStyle.BODY)
+                    text("Muse Spark Multimodal OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "Cancel",
+                      style = ButtonStyle.OUTLINE,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                } else if (billResult != null) {
+                  flexBox(direction = Direction.COLUMN, gap = 3, background = FlexBoxBackground.CARD, padding = 8) {
+                    text(billResult.merchantName, style = TextStyle.BODY)
+                    text("Total: $${"%.2f".format(billResult.grandTotal)}", style = TextStyle.HEADING)
+                    val itemsSummary = "${billResult.items.size} items • Tax $${"%.2f".format(billResult.taxTotal)} • Tip $${"%.2f".format(billResult.tip)}"
+                    text(itemsSummary, style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "Split with Friends (PayPal)",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.SLIDERS_HORIZONTAL,
+                      onClick = {
+                        Log.i(TAG, "Split with Friends clicked for Muse Spark bill")
+                        viewModelScope.launch(Dispatchers.Main) { executeMuseSparkBillSplit() }
+                      }
+                  )
+                  button(
+                      label = "Rescan Bill",
+                      style = ButtonStyle.SECONDARY,
+                      iconName = IconName.TWO_ARROWS_CLOCKWISE,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { onScanBillClicked() }
+                      }
+                  )
+                  button(
+                      label = "Return to Home",
+                      style = ButtonStyle.OUTLINE,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                } else {
+                  button(
+                      label = "Return to Home",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
                 }
               }
             }

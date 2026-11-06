@@ -9,6 +9,7 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 
 import android.graphics.SurfaceTexture
+import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import androidx.camera.view.PreviewView
@@ -42,6 +43,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.font.FontStyle
@@ -646,12 +654,29 @@ private fun WalletHomeScreen(
     onOpenBillSplit: (Double) -> Unit = {},
 ) {
   var selectedTxForReceipt by remember { mutableStateOf<WalletTransaction?>(null) }
+  var showApiKeyDialog by remember { mutableStateOf(false) }
 
   if (selectedTxForReceipt != null) {
     PayPalSmartReceiptDialog(
         tx = selectedTxForReceipt!!,
         cameraViewModel = cameraViewModel,
         onDismiss = { selectedTxForReceipt = null },
+    )
+  }
+
+  if (ui.showMuseSparkDialog) {
+    MuseSparkResultDialog(
+        cameraViewModel = cameraViewModel,
+        ui = ui,
+        onDismiss = { cameraViewModel.dismissMuseSparkDialog() },
+        onOpenApiKeyDialog = { showApiKeyDialog = true },
+    )
+  }
+
+  if (showApiKeyDialog) {
+    MuseSparkApiKeyDialog(
+        cameraViewModel = cameraViewModel,
+        onDismiss = { showApiKeyDialog = false },
     )
   }
 
@@ -687,28 +712,60 @@ private fun WalletHomeScreen(
         }
       }
 
-      // Meta Glasses Status Dot
-      Surface(
-          shape = RoundedCornerShape(50),
-          color = AppColor.BgSurface,
-          modifier = Modifier.clickable { onNavigate(WalletScreen.SETTINGS) },
+      Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically,
       ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // Meta Muse Spark Pill
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = AppColor.BgSurface,
+            border = BorderStroke(1.dp, AppColor.Coral.copy(alpha = 0.35f)),
+            modifier = Modifier.clickable { showApiKeyDialog = true },
         ) {
-          Box(
-              modifier = Modifier
-                  .size(7.dp)
-                  .clip(CircleShape)
-                  .background(
-                      if (isConnected) AppColor.Lime
-                      else if (isPairing) AppColor.Orange
-                      else AppColor.TextMuted
-                  )
-          )
-          Text(text = "Meta", color = AppColor.TextSecondary, fontSize = 11.sp)
+          Row(
+              modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(5.dp),
+          ) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = "Muse Spark",
+                tint = AppColor.Coral,
+                modifier = Modifier.size(12.dp)
+            )
+            Text(
+                text = if (cameraViewModel.museSparkService.hasApiKey()) "Muse Live" else "Muse Demo",
+                color = AppColor.Coral,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+          }
+        }
+
+        // Meta Glasses Status Dot
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = AppColor.BgSurface,
+            modifier = Modifier.clickable { onNavigate(WalletScreen.SETTINGS) },
+        ) {
+          Row(
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isConnected) AppColor.Lime
+                        else if (isPairing) AppColor.Orange
+                        else AppColor.TextMuted
+                    )
+            )
+            Text(text = "Meta", color = AppColor.TextSecondary, fontSize = 11.sp)
+          }
         }
       }
     }
@@ -796,46 +853,33 @@ private fun WalletHomeScreen(
             }
           } else {
             if (ui.glassesDisplayScreen != GlassesDisplayScreen.HOME) {
-              Surface(
               Button(
                   onClick = { cameraViewModel.returnToGlassesHome() },
                   shape = RoundedCornerShape(50),
-                  color = AppColor.PillActive,
-                  modifier = Modifier.clickable { cameraViewModel.returnToGlassesHome() },
                   colors = ButtonDefaults.buttonColors(containerColor = AppColor.PillActive),
                   contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
                   modifier = Modifier.height(32.dp),
               ) {
                 Text(
-                    text = "Home",
                     text = "HUD Home",
                     color = AppColor.TextInverted,
-                    fontSize = 10.sp,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 )
               }
             }
-            Surface(
             Button(
                 onClick = { cameraViewModel.exitWalletDisplaySession() },
                 shape = RoundedCornerShape(50),
-                color = Color(0xFF383838),
-                modifier = Modifier.clickable { cameraViewModel.exitWalletDisplaySession() },
                 colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 5.dp),
                 modifier = Modifier.height(32.dp),
             ) {
               Text(
-                  text = "Exit",
-                  color = AppColor.Coral,
-                  fontSize = 10.sp,
                   text = "Exit Wallet",
                   color = Color.White,
                   fontSize = 11.sp,
                   fontWeight = FontWeight.Bold,
-                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
               )
             }
           }
@@ -945,6 +989,66 @@ private fun WalletHomeScreen(
             Column {
               Text("Split Bill & Invoice", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
               Text("PayPal Invoices v2 • Split with friends", color = AppColor.Sky, fontSize = 10.sp)
+            }
+          }
+        }
+      }
+
+      // Row 4: Meta Muse Spark Multimodal Visual AI (Scan Object & Scan Bill)
+      Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        // Scan Object (Visual Shop)
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = AppColor.BgSurface,
+            border = BorderStroke(1.dp, AppColor.Coral.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+        ) {
+          Row(
+              modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Scan Object",
+                tint = AppColor.Coral,
+                modifier = Modifier.size(24.dp),
+            )
+            Column {
+              Text("Scan Object", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+              Text("Muse Spark • Visual Shop", color = AppColor.Coral, fontSize = 9.sp)
+            }
+          }
+        }
+
+        // Scan Paper Bill
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = AppColor.BgSurface,
+            border = BorderStroke(1.dp, AppColor.Lime.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .weight(1f)
+                .clickable { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+        ) {
+          Row(
+              modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Icon(
+                imageVector = Icons.Default.Receipt,
+                contentDescription = "Scan Bill",
+                tint = AppColor.Lime,
+                modifier = Modifier.size(24.dp),
+            )
+            Column {
+              Text("Scan Bill", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+              Text("Muse Spark • OCR Split", color = AppColor.Lime, fontSize = 9.sp)
             }
           }
         }
@@ -1938,6 +2042,42 @@ private fun WalletScannerScreen(
               fontWeight = FontWeight.SemiBold,
               fontSize = 12.sp,
           )
+        }
+
+        // Meta Muse Spark Multimodal Triggers in Scanner
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Button(
+              onClick = { cameraViewModel.onScanObjectClicked(fromGlasses = isGlasses) },
+              modifier = Modifier.weight(1f).height(42.dp),
+              shape = RoundedCornerShape(50),
+              colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
+          ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Icon(Icons.Default.Search, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+              Text("Scan Object", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          Button(
+              onClick = { cameraViewModel.onScanBillClicked(fromGlasses = isGlasses) },
+              modifier = Modifier.weight(1f).height(42.dp),
+              shape = RoundedCornerShape(50),
+              colors = ButtonDefaults.buttonColors(containerColor = AppColor.Lime),
+          ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+              Icon(Icons.Default.Receipt, contentDescription = null, tint = AppColor.TextInverted, modifier = Modifier.size(16.dp))
+              Text("Scan Bill", color = AppColor.TextInverted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
         }
 
         // Live Scanning Instructions & Guidance Card
@@ -3798,4 +3938,499 @@ fun VoiceQaListeningModal(
       }
     }
   }
+}
+
+// ==========================================
+// SCREEN 9: META MUSE SPARK MULTIMODAL DIALOGS
+// ==========================================
+
+@Composable
+fun MuseSparkResultDialog(
+    cameraViewModel: CameraViewModel,
+    ui: CameraUiState,
+    onDismiss: () -> Unit,
+    onOpenApiKeyDialog: () -> Unit,
+) {
+  val context = LocalContext.current
+  val objResult = ui.museSparkObjectResult
+  val billResult = ui.museSparkBillResult
+  val isLoading = ui.isMuseSparkLoading
+  val activeTab = ui.museSparkActiveTab
+
+  Dialog(
+      onDismissRequest = onDismiss,
+      properties = DialogProperties(usePlatformDefaultWidth = false)
+  ) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .padding(vertical = 24.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = AppColor.BgSurface,
+        border = BorderStroke(1.dp, Color(0xFF383838)),
+        shadowElevation = 24.dp,
+    ) {
+      Column(
+          modifier = Modifier
+              .padding(20.dp)
+              .verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(16.dp),
+      ) {
+        // Top Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Surface(
+                shape = CircleShape,
+                color = AppColor.Coral.copy(alpha = 0.2f),
+                modifier = Modifier.size(34.dp),
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = AppColor.Coral,
+                    modifier = Modifier.size(18.dp)
+                )
+              }
+            }
+            Column {
+              Text(
+                  text = "Meta Muse Spark",
+                  fontSize = 15.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = AppColor.TextPrimary,
+              )
+              Text(
+                  text = "Multimodal Visual AI • 1-Tap PayPal",
+                  fontSize = 11.sp,
+                  color = AppColor.TextSecondary,
+              )
+            }
+          }
+
+          Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            IconButton(onClick = onOpenApiKeyDialog, modifier = Modifier.size(32.dp)) {
+              Icon(Icons.Default.Key, contentDescription = "API Key", tint = AppColor.TextSecondary, modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+              Icon(Icons.Default.Close, contentDescription = "Close", tint = AppColor.TextSecondary, modifier = Modifier.size(18.dp))
+            }
+          }
+        }
+
+        // Mode Switcher Pills: Object vs Bill
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = AppColor.BgCanvas,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+          Row(modifier = Modifier.padding(3.dp)) {
+            val isObj = activeTab == "object"
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (isObj) AppColor.Coral else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+            ) {
+              Row(
+                  modifier = Modifier.padding(vertical = 8.dp),
+                  horizontalArrangement = Arrangement.Center,
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Icon(Icons.Default.Search, contentDescription = null, tint = if (isObj) Color.White else AppColor.TextSecondary, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Scan Object",
+                    color = if (isObj) Color.White else AppColor.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+              }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (!isObj) AppColor.Lime else Color.Transparent,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+            ) {
+              Row(
+                  modifier = Modifier.padding(vertical = 8.dp),
+                  horizontalArrangement = Arrangement.Center,
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Icon(Icons.Default.Receipt, contentDescription = null, tint = if (!isObj) AppColor.TextInverted else AppColor.TextSecondary, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Scan Bill",
+                    color = if (!isObj) AppColor.TextInverted else AppColor.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+              }
+            }
+          }
+        }
+
+        // Main Body: Loading vs Results
+        if (isLoading) {
+          Column(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(vertical = 32.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(14.dp),
+          ) {
+            CircularProgressIndicator(
+                color = if (activeTab == "object") AppColor.Coral else AppColor.Lime,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(42.dp),
+            )
+            Text(
+                text = ui.museSparkLoadingPrompt.ifBlank { "Processing frame with Meta Muse Spark..." },
+                color = AppColor.TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Multimodal inference • Analyzing brand, price & merchant",
+                color = AppColor.TextSecondary,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
+          }
+        } else if (activeTab == "object" && objResult != null) {
+          // Object Result Card
+          Surface(
+              shape = RoundedCornerShape(16.dp),
+              color = Color(0xFF1E1E1E),
+              border = BorderStroke(1.dp, AppColor.Coral.copy(alpha = 0.35f)),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = AppColor.Coral.copy(alpha = 0.2f),
+                ) {
+                  Text(
+                      text = "${objResult.brand} • ${objResult.category}",
+                      color = AppColor.Coral,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                  )
+                }
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = AppColor.Lime.copy(alpha = 0.15f),
+                ) {
+                  Text(
+                      text = "PayPal Vault Ready",
+                      color = AppColor.Lime,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                  )
+                }
+              }
+
+              Text(
+                  text = objResult.productName,
+                  fontSize = 17.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = AppColor.TextPrimary,
+              )
+
+              Text(
+                  text = objResult.shortDescription,
+                  fontSize = 12.sp,
+                  color = AppColor.TextSecondary,
+                  lineHeight = 16.sp,
+              )
+
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.Bottom,
+              ) {
+                Column {
+                  Text("Best Price", color = AppColor.TextSecondary, fontSize = 11.sp)
+                  Text(
+                      text = "$${"%.2f".format(objResult.estimatedPrice)}",
+                      fontSize = 24.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = AppColor.TextPrimary,
+                  )
+                }
+                Text(
+                    text = "at ${objResult.merchantName}",
+                    color = AppColor.Sky,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+              }
+            }
+          }
+
+          // 1-Tap Purchase Button
+          Button(
+              onClick = { cameraViewModel.executeMuseSparkObjectPurchase() },
+              modifier = Modifier.fillMaxWidth().height(48.dp),
+              shape = RoundedCornerShape(50),
+              colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
+          ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+              Text(
+                  text = "1-Tap Buy ($${"%.2f".format(objResult.estimatedPrice)}) with PayPal",
+                  color = Color.White,
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.Bold,
+              )
+            }
+          }
+
+          // Secondary Actions: Open Browser & Rescan
+          Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            OutlinedButton(
+                onClick = {
+                  try {
+                    val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(objResult.shoppingUrl))
+                    context.startActivity(intent)
+                  } catch (e: Exception) {
+                    Log.e("MuseSparkDialog", "Cannot open URL: ${e.message}")
+                  }
+                },
+                modifier = Modifier.weight(1f).height(40.dp),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color(0xFF383838)),
+            ) {
+              Text("Merchant Page", color = AppColor.TextPrimary, fontSize = 11.sp)
+            }
+
+            OutlinedButton(
+                onClick = { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+                modifier = Modifier.weight(1f).height(40.dp),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color(0xFF383838)),
+            ) {
+              Text("Scan Again", color = AppColor.TextPrimary, fontSize = 11.sp)
+            }
+          }
+        } else if (activeTab == "bill" && billResult != null) {
+          // Bill Result Card
+          Surface(
+              shape = RoundedCornerShape(16.dp),
+              color = Color(0xFF1E1E1E),
+              border = BorderStroke(1.dp, AppColor.Lime.copy(alpha = 0.35f)),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+              Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Text(
+                    text = billResult.merchantName,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColor.TextPrimary,
+                )
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = AppColor.Sky.copy(alpha = 0.2f),
+                ) {
+                  Text(
+                      text = "Invoicing v2",
+                      color = AppColor.Sky,
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                  )
+                }
+              }
+
+              // Itemized list
+              Column(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(8.dp))
+                      .background(Color(0xFF161616))
+                      .padding(10.dp),
+                  verticalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                billResult.items.forEach { item ->
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                  ) {
+                    Text(
+                        text = "${item.quantity}x ${item.name}",
+                        color = AppColor.TextPrimary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = "$${"%.2f".format(item.unitAmount * item.quantity)}",
+                        color = AppColor.TextSecondary,
+                        fontSize = 11.sp,
+                    )
+                  }
+                }
+              }
+
+              // Totals
+              Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Subtotal", color = AppColor.TextSecondary, fontSize = 11.sp)
+                  Text("$${"%.2f".format(billResult.subtotal)}", color = AppColor.TextSecondary, fontSize = 11.sp)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Tax & Tip", color = AppColor.TextSecondary, fontSize = 11.sp)
+                  Text("$${"%.2f".format(billResult.taxTotal + billResult.tip)}", color = AppColor.TextSecondary, fontSize = 11.sp)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Grand Total", color = AppColor.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                  Text("$${"%.2f".format(billResult.grandTotal)}", color = AppColor.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Suggested Split (2 people)", color = AppColor.Lime, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                  Text("$${"%.2f".format(billResult.suggestedSplitPerPerson)} each", color = AppColor.Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+              }
+            }
+          }
+
+          // Split Bill Button
+          Button(
+              onClick = { cameraViewModel.executeMuseSparkBillSplit() },
+              modifier = Modifier.fillMaxWidth().height(48.dp),
+              shape = RoundedCornerShape(50),
+              colors = ButtonDefaults.buttonColors(containerColor = AppColor.Lime),
+          ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+              Icon(Icons.Default.Send, contentDescription = null, tint = AppColor.TextInverted, modifier = Modifier.size(18.dp))
+              Text(
+                  text = "Split ($${"%.2f".format(billResult.grandTotal)}) via PayPal Invoices",
+                  color = AppColor.TextInverted,
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.Bold,
+              )
+            }
+          }
+
+          // Secondary Rescan
+          OutlinedButton(
+              onClick = { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+              modifier = Modifier.fillMaxWidth().height(40.dp),
+              shape = RoundedCornerShape(50),
+              border = BorderStroke(1.dp, Color(0xFF383838)),
+          ) {
+            Text("Scan Another Bill", color = AppColor.TextPrimary, fontSize = 11.sp)
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun MuseSparkApiKeyDialog(
+    cameraViewModel: CameraViewModel,
+    onDismiss: () -> Unit,
+) {
+  var keyText by remember { mutableStateOf(cameraViewModel.museSparkService.getApiKey()) }
+
+  AlertDialog(
+      onDismissRequest = onDismiss,
+      containerColor = AppColor.BgSurface,
+      title = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Icon(Icons.Default.Key, contentDescription = null, tint = AppColor.Coral, modifier = Modifier.size(20.dp))
+          Text("Meta Muse Spark API Key", color = AppColor.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+      },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Text(
+              text = "Enter your Meta Model API or OpenRouter API key for live multimodal processing with Muse Spark.",
+              color = AppColor.TextSecondary,
+              fontSize = 12.sp,
+              lineHeight = 16.sp,
+          )
+          OutlinedTextField(
+              value = keyText,
+              onValueChange = { keyText = it },
+              placeholder = { Text("Paste API Key here (or leave blank for Demo mode)", color = AppColor.TextMuted, fontSize = 11.sp) },
+              modifier = Modifier.fillMaxWidth(),
+              singleLine = true,
+              colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = AppColor.Coral,
+                  unfocusedBorderColor = Color(0xFF383838),
+                  focusedTextColor = AppColor.TextPrimary,
+                  unfocusedTextColor = AppColor.TextPrimary,
+              ),
+          )
+          Text(
+              text = "Leave empty to use built-in Smart Demo / Offline mode for instant hackathon evaluation.",
+              color = AppColor.Lime,
+              fontSize = 11.sp,
+          )
+        }
+      },
+      confirmButton = {
+        Button(
+            onClick = {
+              cameraViewModel.museSparkService.setApiKey(keyText)
+              onDismiss()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
+            shape = RoundedCornerShape(50),
+        ) {
+          Text("Save Key", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = onDismiss) {
+          Text("Cancel", color = AppColor.TextSecondary, fontSize = 12.sp)
+        }
+      },
+  )
 }

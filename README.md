@@ -2,6 +2,7 @@
 ### Ambient Agentic Commerce on Meta Ray-Ban Smart Glasses with PayPal & On-Device AI
 
 [![PayPal Developer](https://img.shields.io/badge/PayPal-Orders_v2_|_Vault_|_Invoicing_|_Payouts-003087?style=for-the-badge&logo=paypal&logoColor=white)](https://developer.paypal.com)
+[![Meta Muse Spark](https://img.shields.io/badge/Meta_Muse_Spark-Multimodal_Visual_AI-0668E1?style=for-the-badge&logo=meta&logoColor=white)](https://www.meta.ai)
 [![Google LiteRT](https://img.shields.io/badge/Google_LiteRT-On--Device_AI_(TFLite)-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/edge/litert)
 [![Meta Wearables](https://img.shields.io/badge/Meta_Wearables_DAT-Display_HUD_|_Camera_|_Speech-0668E1?style=for-the-badge&logo=meta&logoColor=white)](https://wearables.developer.meta.com)
 [![Android](https://img.shields.io/badge/Android-Jetpack_Compose-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
@@ -10,9 +11,9 @@
 
 ## Overview
 
-**AirWallet** transforms Meta Ray-Ban Display smart glasses into an **ambient, agentic commerce terminal**. By fusing **PayPal's developer suite** (Orders v2 with Vaulting, Invoicing v2, and Payouts v1) with **on-device Google LiteRT artificial intelligence** and **Meta Wearables DAT (Device Access Toolkit)**, AirWallet enables truly hands-free, glance-and-tap transactions in the physical world.
+**AirWallet** transforms Meta Ray-Ban Display smart glasses into an **ambient, agentic commerce terminal**. By fusing **PayPal's developer suite** (Orders v2 with Vaulting, Invoicing v2, and Payouts v1) with **Meta Muse Spark multimodal visual intelligence**, **on-device Google LiteRT artificial intelligence**, and **Meta Wearables DAT (Device Access Toolkit)**, AirWallet enables truly hands-free, glance-and-tap transactions in the physical world.
 
-Wearers can glance at merchant QR codes or invoices, review itemized breakdowns directly on the glasses' optical waveguide HUD, approve payments with a temple tap or voice command via vaulted PayPal credentials, query on-device financial intelligence hands-free, and split group dining bills by generating live PayPal invoices on the fly.
+Wearers can glance at merchant QR codes or invoices, review itemized breakdowns directly on the glasses' optical waveguide HUD, approve payments with a temple tap or voice command via vaulted PayPal credentials, query on-device financial intelligence hands-free, split group dining bills by generating live PayPal invoices on the fly, and use Meta Muse Spark to identify physical products or parse paper dining bills into itemized invoices automatically.
 
 
 ---
@@ -24,18 +25,23 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 - **1-Tap Vaulted Payments**: Leverages [PayPal Vault](https://developer.paypal.com/docs/checkout/save-payment-methods/) to capture orders instantly (`POST /v2/checkout/orders` with `payment_source.paypal.vault_id`) without requiring the wearer to pull out a smartphone, unlock an app, or go through web redirects.
 - **Waveguide Optical HUD**: Renders a dedicated payment confirmation card, dynamic itemized breakdown, and live status on the smart glasses' high-contrast green waveguide display using Meta FlexBox declarative DSL.
 
-### 2. On-Device Financial Intelligence (Google LiteRT)
+### 2. Visual AI with Meta Muse Spark
+- **Scan Object (Visual Shop & 1-Tap Pay)**: Point the glasses at any physical product or merchandise. Meta Muse Spark multimodal visual AI analyzes the live camera frame, identifies the exact product name, brand, estimated price, and merchant, and formats an immediate 1-tap vaulted PayPal checkout option right on the glasses HUD and phone screen.
+- **Scan Bill (Smart Receipt Split & Invoicing)**: Look at any paper restaurant receipt or paper invoice. Meta Muse Spark performs optical multimodal document understanding, extracts itemized line items, tax, tip, and total, and automatically sets up a multi-party group split dispatched via PayPal Invoicing v2.
+- **Zero-Barrier Evaluation Mode**: Designed with intelligent demo fallbacks so judges and developers can evaluate the entire multimodal visual AI flow on-device even before entering an external API key.
+
+### 3. On-Device Financial Intelligence (Google LiteRT)
 - **100% Private, Zero-Latency Edge AI**: Employs an on-device TensorFlow Lite model (`financial_analytics.tflite`) with XNNPACK acceleration to categorize real-time spending, compute budget health scores, and forecast weekly expenditure trends.
 - **Hands-Free Spending AI Q&A**: Wearers can tap or speak analytical financial questions while wearing the glasses (e.g., *"What was my highest expense this week?"*, *"How much did I spend on food today?"*, *"What's my burn rate?"*). The AI evaluates the transaction graph on-device and delivers concise voice responses (TTS) and HUD visual cards.
 
-### 3. Agentic Bill Splitting & Invoicing (PayPal Invoicing v2)
+### 4. Agentic Bill Splitting & Invoicing (PayPal Invoicing v2)
 - **Instant Group Reimbursements**: After paying a restaurant or merchant tab, a single temple tap opens the **Split Bill** selector on the glasses HUD.
 - **Automated PayPal Invoice Generation**: Synthesizes itemized line items and dispatches live PayPal Invoices (`POST /v2/invoicing/invoices` and `/send`) to dining companions via email or handle, providing secure payment links with zero manual typing.
 
-### 4. Hands-Free Peer Payouts (PayPal Payouts v1)
+### 5. Hands-Free Peer Payouts (PayPal Payouts v1)
 - **Voice-Activated Disbursements**: Wearers can disburse immediate peer-to-peer reimbursements hands-free via voice command (e.g., *"Send $15 to Maya via PayPal"*). Conforms to PayPal Payouts v1 batch disbursement APIs.
 
-### 5. Universal Judge & Testing Support (No Glasses Required!)
+### 6. Universal Judge & Testing Support (No Glasses Required!)
 - **Mobile Camera Scanner Fallback**: While AirWallet is purpose-built for Meta smart glasses, the companion Android app includes a **full mobile camera scanner and mock HUD emulator**. Hackathon judges and developers without Meta glasses hardware can test the entire PayPal + AI experience directly on any physical Android device.
 
 ---
@@ -51,7 +57,8 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 | Layer | Technology | Details |
 | :--- | :--- | :--- |
 | **Payments** | **PayPal Developer Platform** | Orders v2, Vault API, Invoicing v2, Payouts v1, Sandbox REST endpoints |
-| **Artificial Intelligence** | **Google LiteRT (TFLite)** | On-device inference (`financial_analytics.tflite`), XNNPACK acceleration, edge NLP |
+| **Multimodal Visual AI** | **Meta Muse Spark** | Visual product identification, shopping links, receipt/bill parsing & line itemization |
+| **Edge Intelligence** | **Google LiteRT (TFLite)** | On-device inference (`financial_analytics.tflite`), XNNPACK acceleration, edge NLP |
 | **Computer Vision** | **Google ML Kit** | Pre-warmed neural barcode scanning with instant 0ms cold-start cache |
 | **Wearable Hardware** | **Meta Wearables DAT SDK** | Display (Waveguide FlexBox DSL), Camera (15 FPS HEVC), Speech (On-device ASR) |
 | **Mobile Architecture** | **Android 14+ / Kotlin** | Jetpack Compose, Material 3, Coroutines, StateFlow, Foreground Streaming Service |
@@ -133,7 +140,8 @@ AirWallet/
 │   │   │   ├── PayPalVaultRepository.kt     # Local vaulted credential management adhering to PayPal Best Practices
 │   │   │   └── PayPalModels.kt              # Data models for Orders, Vault, Invoices, and Payouts
 │   │   ├── ai/
-│   │   │   └── FinancialAiEngine.kt         # Google LiteRT (TFLite) on-device inference engine & voice Q&A
+│   │   │   ├── FinancialAiEngine.kt         # Google LiteRT (TFLite) on-device inference engine & voice Q&A
+│   │   │   └── MuseSparkService.kt          # Meta Muse Spark multimodal visual AI (Scan Object & Scan Bill)
 │   │   ├── QrCodeAnalyzer.kt                # Multi-format QR decoder (PayPal.me, Managed QRs, UPI)
 │   │   └── TransactionRepository.kt         # Persistent local transaction ledger
 │   ├── ui/

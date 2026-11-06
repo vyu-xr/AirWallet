@@ -35,6 +35,8 @@ enum class GlassesDisplayScreen {
   PAYMENT,
   BILL_SPLIT,
   BILL_SPLIT_KEYPAD,
+  SCAN_OBJECT,
+  SCAN_BILL,
 }
 
 /** Active analytics chart view on Meta Display Glasses HUD */
@@ -94,6 +96,12 @@ data class CameraUiState(
     val billSplitSelectedFriendIds: Set<String> = emptySet(),
     val isDeviceInStandby: Boolean = false,
     val deviceStatusMessage: String? = null,
+    val museSparkObjectResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkObjectResult? = null,
+    val museSparkBillResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkBillResult? = null,
+    val isMuseSparkLoading: Boolean = false,
+    val museSparkLoadingPrompt: String = "",
+    val showMuseSparkDialog: Boolean = false,
+    val museSparkActiveTab: String = "object",
 ) {
   val isDisplayActive: Boolean
     get() = displayState == com.meta.wearable.dat.display.types.DisplayState.STARTED
