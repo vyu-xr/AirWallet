@@ -68,7 +68,7 @@ class MuseSparkService(private val context: Context) {
     private const val KEY_MODEL = "muse_spark_model"
 
     const val DEFAULT_BASE_URL = "https://api.meta.ai/v1"
-    const val DEFAULT_MODEL = "meta/muse-spark-1.3"
+    const val DEFAULT_MODEL = "muse-spark-1.3-contributor"
   }
 
   private val prefs: SharedPreferences =

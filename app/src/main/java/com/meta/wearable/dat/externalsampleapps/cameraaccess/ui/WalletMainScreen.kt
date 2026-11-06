@@ -4390,7 +4390,7 @@ fun MuseSparkApiKeyDialog(
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-              text = "Enter your Meta Model API or OpenRouter API key for live multimodal processing with Muse Spark.",
+              text = "Model: muse-spark-1.3-contributor (95% discount tier: $0.10/M tokens). Enter your Meta Model API key for live multimodal processing.",
               color = AppColor.TextSecondary,
               fontSize = 12.sp,
               lineHeight = 16.sp,

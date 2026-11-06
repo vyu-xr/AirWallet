@@ -25,7 +25,8 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 - **1-Tap Vaulted Payments**: Leverages [PayPal Vault](https://developer.paypal.com/docs/checkout/save-payment-methods/) to capture orders instantly (`POST /v2/checkout/orders` with `payment_source.paypal.vault_id`) without requiring the wearer to pull out a smartphone, unlock an app, or go through web redirects.
 - **Waveguide Optical HUD**: Renders a dedicated payment confirmation card, dynamic itemized breakdown, and live status on the smart glasses' high-contrast green waveguide display using Meta FlexBox declarative DSL.
 
-### 2. Visual AI with Meta Muse Spark
+### 2. Visual AI with Meta Muse Spark (Contributor Tier)
+- **Ultra-Cost-Efficient Model (`muse-spark-1.3-contributor`)**: Configured to run on Meta's 95% discounted contributor tier ($0.10 / 1M input tokens, under $0.0001 per scan), delivering full frontier multimodal reasoning at minimum token overhead.
 - **Scan Object (Visual Shop & 1-Tap Pay)**: Point the glasses at any physical product or merchandise. Meta Muse Spark multimodal visual AI analyzes the live camera frame, identifies the exact product name, brand, estimated price, and merchant, and formats an immediate 1-tap vaulted PayPal checkout option right on the glasses HUD and phone screen.
 - **Scan Bill (Smart Receipt Split & Invoicing)**: Look at any paper restaurant receipt or paper invoice. Meta Muse Spark performs optical multimodal document understanding, extracts itemized line items, tax, tip, and total, and automatically sets up a multi-party group split dispatched via PayPal Invoicing v2.
 - **Zero-Barrier Evaluation Mode**: Designed with intelligent demo fallbacks so judges and developers can evaluate the entire multimodal visual AI flow on-device even before entering an external API key.
