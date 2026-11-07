@@ -498,8 +498,8 @@ class CameraViewModel(
   // LiteRT (TensorFlow Lite) On-Device AI Financial Intelligence Engine
   val financialAiEngine = FinancialAiEngine(application)
 
-  // Meta Muse Spark Multimodal Visual AI Engine (Cloud / Edge Hybrid)
-  val museSparkService = com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkService(application)
+  // Google Gemini 2.0 Flash Multimodal Visual AI Engine
+  val geminiFlashService = com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.GeminiFlashService(application)
 
   // Display capability for payment lifecycle
   private var display: Display? = null
@@ -849,7 +849,7 @@ class CameraViewModel(
     voicePrompter.speak("Amount set to $${"%.2f".format(amount)}. $${"%.2f".format(share)} each.")
   }
 
-  // MARK: - Meta Muse Spark Multimodal Visual AI Workflows
+  // MARK: - Google Gemini 2.0 Flash Multimodal Visual AI Workflows
 
   /**
    * Scans a physical product in view using Google Gemini 2.0 Flash multimodal visual AI.
@@ -859,44 +859,70 @@ class CameraViewModel(
     Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     _uiState.update {
       it.copy(
-          isMuseSparkLoading = true,
-          museSparkLoadingPrompt = "Analyzing product with Google Gemini 2.0 Flash...",
+          isGeminiLoading = true,
+          geminiLoadingPrompt = "Analyzing product with Google Gemini 2.0 Flash...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_OBJECT,
-          showMuseSparkDialog = true,
-          museSparkActiveTab = "object",
-          museSparkObjectResult = null,
+          showGeminiDialog = true,
+          geminiActiveTab = "object",
+          geminiObjectResult = null,
       )
     }
     renderGlassesScreen()
     voicePrompter.speak("Looking up product with Gemini Flash.")
 
+    if (fromGlasses && bitmap == null) {
+      if (!_uiState.value.isSessionActive) {
+        startSession()
+      } else {
+        val s = session
+        if (s != null && display == null && isDisplayCapableDevice(s)) {
+          attachDisplayCapability(s)
+        }
+      }
+      if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
+        startStreaming()
+      }
+    }
+
     viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
-      if (targetBitmap == null && stream != null && _uiState.value.isStreaming) {
-        try {
-          stream?.capturePhoto()?.onSuccess { photoData ->
-            targetBitmap = decodePhoto(photoData)
+      if (targetBitmap == null && fromGlasses) {
+        var waitCount = 0
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 18) {
+          kotlinx.coroutines.delay(200)
+          waitCount++
+        }
+        val currentStream = stream
+        if (currentStream != null && _uiState.value.isStreaming) {
+          try {
+            currentStream.capturePhoto()
+                .onSuccess { photoData ->
+                  targetBitmap = decodePhotoForScanning(photoData)
+                }
+                .onFailure { err, _ ->
+                  Log.w(TAG, "Glasses capturePhoto failed for object: ${err.description}")
+                }
+          } catch (e: Exception) {
+            Log.w(TAG, "Could not capture glasses photo for Visual AI: ${e.message}")
           }
-        } catch (e: Exception) {
-          Log.w(TAG, "Could not capture glasses photo for Visual AI: ${e.message}")
         }
       }
 
-      val result = museSparkService.identifyObject(targetBitmap)
+      val result = geminiFlashService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
           Log.i(TAG, "Gemini Flash found: ${obj.productName} for $${obj.estimatedPrice}")
           _uiState.update {
             it.copy(
-                isMuseSparkLoading = false,
-                museSparkObjectResult = obj,
+                isGeminiLoading = false,
+                geminiObjectResult = obj,
             )
           }
           renderGlassesScreen()
           voicePrompter.speak("Found ${obj.productName} for $${obj.estimatedPrice.toInt()} dollars at ${obj.merchantName}. Tap to buy with PayPal.")
         }.onFailure { err ->
           Log.e(TAG, "Gemini Flash object identification error: ${err.message}")
-          _uiState.update { it.copy(isMuseSparkLoading = false) }
+          _uiState.update { it.copy(isGeminiLoading = false) }
           renderGlassesScreen()
         }
       }
@@ -911,60 +937,86 @@ class CameraViewModel(
     Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     _uiState.update {
       it.copy(
-          isMuseSparkLoading = true,
-          museSparkLoadingPrompt = "Parsing paper bill with Google Gemini 2.0 Flash...",
+          isGeminiLoading = true,
+          geminiLoadingPrompt = "Parsing paper bill with Google Gemini 2.0 Flash...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_BILL,
-          showMuseSparkDialog = true,
-          museSparkActiveTab = "bill",
-          museSparkBillResult = null,
+          showGeminiDialog = true,
+          geminiActiveTab = "bill",
+          geminiBillResult = null,
       )
     }
     renderGlassesScreen()
     voicePrompter.speak("Scanning bill with Gemini Flash.")
 
+    if (fromGlasses && bitmap == null) {
+      if (!_uiState.value.isSessionActive) {
+        startSession()
+      } else {
+        val s = session
+        if (s != null && display == null && isDisplayCapableDevice(s)) {
+          attachDisplayCapability(s)
+        }
+      }
+      if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
+        startStreaming()
+      }
+    }
+
     viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
-      if (targetBitmap == null && stream != null && _uiState.value.isStreaming) {
-        try {
-          stream?.capturePhoto()?.onSuccess { photoData ->
-            targetBitmap = decodePhoto(photoData)
+      if (targetBitmap == null && fromGlasses) {
+        var waitCount = 0
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 18) {
+          kotlinx.coroutines.delay(200)
+          waitCount++
+        }
+        val currentStream = stream
+        if (currentStream != null && _uiState.value.isStreaming) {
+          try {
+            currentStream.capturePhoto()
+                .onSuccess { photoData ->
+                  targetBitmap = decodePhotoForScanning(photoData)
+                }
+                .onFailure { err, _ ->
+                  Log.w(TAG, "Glasses capturePhoto failed for bill: ${err.description}")
+                }
+          } catch (e: Exception) {
+            Log.w(TAG, "Could not capture glasses photo for Gemini Flash bill: ${e.message}")
           }
-        } catch (e: Exception) {
-          Log.w(TAG, "Could not capture glasses photo for Muse Spark bill: ${e.message}")
         }
       }
 
-      val result = museSparkService.parseBill(targetBitmap)
+      val result = geminiFlashService.parseBill(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { bill ->
-          Log.i(TAG, "Muse Spark parsed bill: ${bill.merchantName} (Total: $${bill.grandTotal})")
+          Log.i(TAG, "Gemini Flash parsed bill: ${bill.merchantName} (Total: $${bill.grandTotal})")
           _uiState.update {
             it.copy(
-                isMuseSparkLoading = false,
-                museSparkBillResult = bill,
+                isGeminiLoading = false,
+                geminiBillResult = bill,
             )
           }
           renderGlassesScreen()
           voicePrompter.speak("Parsed bill from ${bill.merchantName}. Total is $${bill.grandTotal.toInt()} dollars. Tap to split with friends.")
         }.onFailure { err ->
-          Log.e(TAG, "Muse Spark bill parsing error: ${err.message}")
-          _uiState.update { it.copy(isMuseSparkLoading = false) }
+          Log.e(TAG, "Gemini Flash bill parsing error: ${err.message}")
+          _uiState.update { it.copy(isGeminiLoading = false) }
           renderGlassesScreen()
         }
       }
     }
   }
 
-  fun dismissMuseSparkDialog() {
-    _uiState.update { it.copy(showMuseSparkDialog = false) }
+  fun dismissGeminiDialog() {
+    _uiState.update { it.copy(showGeminiDialog = false) }
   }
 
-  fun executeMuseSparkObjectPurchase() {
-    val objResult = _uiState.value.museSparkObjectResult ?: return
+  fun executeGeminiObjectPurchase() {
+    val objResult = _uiState.value.geminiObjectResult ?: return
     viewModelScope.launch(Dispatchers.Main) {
       val amount = objResult.estimatedPrice
       val payee = objResult.merchantName
-      val note = "Purchased ${objResult.productName} via Meta Muse Spark"
+      val note = "Purchased ${objResult.productName} via Gemini Flash"
 
       val result = payPalPaymentService.executePayment(
           payee = payee,
@@ -988,17 +1040,17 @@ class CameraViewModel(
         )
         transactionRepository.addTransaction(tx)
         voicePrompter.speak("Paid $${"%.2f".format(amount)} to $payee with PayPal Vault.")
-        _uiState.update { it.copy(showMuseSparkDialog = false) }
+        _uiState.update { it.copy(showGeminiDialog = false) }
         returnToGlassesHome()
       }.onFailure { err ->
-        Log.e(TAG, "Muse Spark purchase error: ${err.message}")
+        Log.e(TAG, "Gemini Flash purchase error: ${err.message}")
       }
     }
   }
 
-  fun executeMuseSparkBillSplit() {
-    val bill = _uiState.value.museSparkBillResult ?: return
-    _uiState.update { it.copy(showMuseSparkDialog = false) }
+  fun executeGeminiBillSplit() {
+    val bill = _uiState.value.geminiBillResult ?: return
+    _uiState.update { it.copy(showGeminiDialog = false) }
     openGlassesBillSplitSelection(bill.grandTotal)
   }
 
@@ -1326,9 +1378,12 @@ class CameraViewModel(
         when (state) {
           DeviceSessionState.STARTED -> {
             _uiState.update { it.copy(isDeviceInStandby = false, deviceStatusMessage = null) }
+            val isVisualAiScreen = _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR ||
+                _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT ||
+                _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL
             if (isDisplayCapableDevice(session)) {
-              if (_uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR) {
-                Log.i(TAG, "Device session STARTED in SCAN_QR mode - attaching display HUD and starting stream")
+              if (isVisualAiScreen) {
+                Log.i(TAG, "Device session STARTED in visual scanning mode (${_uiState.value.glassesDisplayScreen}) - attaching display HUD and starting stream")
                 attachDisplayCapability(session)
                 if (stream == null && !_uiState.value.isStartingStream) {
                   startStreaming()
@@ -1343,7 +1398,7 @@ class CameraViewModel(
             } else {
               attachSpeechCapability(session)
               Log.i(TAG, "Device session STARTED on non-display Ray-Ban Meta glasses (Voice/Camera mode)")
-              if (_uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR) {
+              if (isVisualAiScreen) {
                 if (stream == null && !_uiState.value.isStartingStream) {
                   startStreaming()
                 }
@@ -1665,7 +1720,7 @@ class CameraViewModel(
       }
       GlassesDisplayScreen.SCAN_OBJECT -> {
         if (lower.contains("buy") || lower.contains("pay") || lower.contains("confirm")) {
-          executeMuseSparkObjectPurchase()
+          executeGeminiObjectPurchase()
           return
         } else if (lower.contains("rescan") || lower.contains("again")) {
           onScanObjectClicked()
@@ -1677,7 +1732,7 @@ class CameraViewModel(
       }
       GlassesDisplayScreen.SCAN_BILL -> {
         if (lower.contains("split") || lower.contains("confirm") || lower.contains("invoice")) {
-          executeMuseSparkBillSplit()
+          executeGeminiBillSplit()
           return
         } else if (lower.contains("rescan") || lower.contains("again")) {
           onScanBillClicked()
@@ -2849,7 +2904,7 @@ class CameraViewModel(
                     }
                 )
                 button(
-                    label = "Scan Object (Muse Spark)",
+                    label = "Scan Object (Gemini Flash)",
                     style = ButtonStyle.SECONDARY,
                     iconName = IconName.META_AI,
                     onClick = {
@@ -2858,7 +2913,7 @@ class CameraViewModel(
                     }
                 )
                 button(
-                    label = "Scan Bill (Muse Spark)",
+                    label = "Scan Bill (Gemini Flash)",
                     style = ButtonStyle.SECONDARY,
                     iconName = IconName.SLIDERS_HORIZONTAL,
                     onClick = {
@@ -3343,8 +3398,8 @@ class CameraViewModel(
               }
               GlassesDisplayScreen.SCAN_OBJECT -> {
                 text("Gemini Flash • Visual Shop", style = TextStyle.HEADING)
-                val objResult = _uiState.value.museSparkObjectResult
-                val isLoading = _uiState.value.isMuseSparkLoading
+                val objResult = _uiState.value.geminiObjectResult
+                val isLoading = _uiState.value.isGeminiLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
@@ -3371,7 +3426,7 @@ class CameraViewModel(
                       iconName = IconName.CHECKMARK,
                       onClick = {
                         Log.i(TAG, "1-Tap Pay via PayPal clicked for Visual AI object")
-                        viewModelScope.launch(Dispatchers.Main) { executeMuseSparkObjectPurchase() }
+                        viewModelScope.launch(Dispatchers.Main) { executeGeminiObjectPurchase() }
                       }
                   )
                   button(
@@ -3403,8 +3458,8 @@ class CameraViewModel(
               }
               GlassesDisplayScreen.SCAN_BILL -> {
                 text("Gemini Flash • Bill Split", style = TextStyle.HEADING)
-                val billResult = _uiState.value.museSparkBillResult
-                val isLoading = _uiState.value.isMuseSparkLoading
+                val billResult = _uiState.value.geminiBillResult
+                val isLoading = _uiState.value.isGeminiLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
@@ -3431,8 +3486,8 @@ class CameraViewModel(
                       style = ButtonStyle.PRIMARY,
                       iconName = IconName.SLIDERS_HORIZONTAL,
                       onClick = {
-                        Log.i(TAG, "Split with Friends clicked for Muse Spark bill")
-                        viewModelScope.launch(Dispatchers.Main) { executeMuseSparkBillSplit() }
+                        Log.i(TAG, "Split with Friends clicked for Gemini Flash bill")
+                        viewModelScope.launch(Dispatchers.Main) { executeGeminiBillSplit() }
                       }
                   )
                   button(

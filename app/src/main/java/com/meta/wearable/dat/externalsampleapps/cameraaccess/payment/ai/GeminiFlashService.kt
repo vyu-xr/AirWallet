@@ -25,9 +25,9 @@ import java.net.URL
 import java.util.UUID
 
 /**
- * Result data class for Google Lens-style visual product scanning via Meta Muse Spark.
+ * Result data class for visual product scanning via Google Gemini 2.0 Flash.
  */
-data class MuseSparkObjectResult(
+data class GeminiObjectResult(
     val productName: String,
     val brand: String,
     val category: String,
@@ -41,9 +41,9 @@ data class MuseSparkObjectResult(
 )
 
 /**
- * Result data class for visual receipt/bill splitting via Meta Muse Spark.
+ * Result data class for visual receipt/bill splitting via Google Gemini 2.0 Flash.
  */
-data class MuseSparkBillResult(
+data class GeminiBillResult(
     val merchantName: String,
     val items: List<PayPalOrderItem>,
     val subtotal: Double,
@@ -55,20 +55,19 @@ data class MuseSparkBillResult(
 )
 
 /**
- * Multimodal Visual AI service connecting AirWallet to Google Gemini 2.0 Flash (and Meta Muse Spark).
+ * Multimodal Visual AI service connecting AirWallet to Google Gemini 2.0 Flash.
  * Handles high-resolution camera frame encoding, multimodal REST requests, structured
- * schema generation, and transparent demo fallback mode for hackathon judge evaluation.
+ * schema generation, and transparent demo fallback mode for offline testing.
  *
- * Defaults to Google Gemini 2.0 Flash for instant, zero-cost (free tier from Google AI Studio)
- * optical recognition with zero billing blockers.
+ * Uses Google Gemini 2.0 Flash for instant, zero-cost optical recognition.
  */
-class MuseSparkService(private val context: Context) {
+class GeminiFlashService(private val context: Context) {
   companion object {
-    private const val TAG = "AirWallet:VisualAI"
-    private const val PREFS_NAME = "airwallet_muse_spark_prefs"
-    private const val KEY_API_KEY = "muse_spark_api_key"
-    private const val KEY_BASE_URL = "muse_spark_base_url"
-    private const val KEY_MODEL = "muse_spark_model"
+    private const val TAG = "AirWallet:GeminiFlash"
+    private const val PREFS_NAME = "airwallet_gemini_prefs"
+    private const val KEY_API_KEY = "gemini_api_key"
+    private const val KEY_BASE_URL = "gemini_base_url"
+    private const val KEY_MODEL = "gemini_model"
 
     // App-side built-in API key: zero setup or client-side configuration required
     const val APP_BUILTIN_API_KEY = "AQ.Ab8RN6KXe1FkSqkE5DqxF0FHqPRSphmA1s8NF65J-WUbOetDFg"
@@ -86,7 +85,7 @@ class MuseSparkService(private val context: Context) {
 
   fun setApiKey(apiKey: String) {
     prefs.edit().putString(KEY_API_KEY, apiKey.trim()).apply()
-    Log.i(TAG, "Visual AI API Key updated (length: ${apiKey.length})")
+    Log.i(TAG, "Gemini Flash API Key updated (length: ${apiKey.length})")
   }
 
   fun getBaseUrl(): String {
@@ -111,7 +110,7 @@ class MuseSparkService(private val context: Context) {
    * Identifies a physical commercial product in the camera frame using Google Gemini Flash.
    * Returns product details, best merchant price, and shopping checkout link.
    */
-  suspend fun identifyObject(bitmap: Bitmap?): Result<MuseSparkObjectResult> = withContext(Dispatchers.IO) {
+  suspend fun identifyObject(bitmap: Bitmap?): Result<GeminiObjectResult> = withContext(Dispatchers.IO) {
     val apiKey = getApiKey()
     Log.i(TAG, "identifyObject: Starting visual product recognition (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
 
@@ -150,7 +149,7 @@ class MuseSparkService(private val context: Context) {
       Log.w(TAG, "identifyObject: bitmap is null! No image frame provided.")
     }
 
-    // Smart Fallback / Demo Mode (Ensures zero friction for hackathon judges & offline testing)
+    // Smart Fallback / Demo Mode
     kotlinx.coroutines.delay(1000)
     val fallback = generateSmartObjectFallback()
     Log.i(TAG, "Delivered fallback Visual AI object result: ${fallback.productName} ($${fallback.estimatedPrice})")
@@ -161,7 +160,7 @@ class MuseSparkService(private val context: Context) {
    * Scans a physical paper restaurant bill or retail receipt using Google Gemini Flash.
    * Extracts itemized breakdown, tax, tip, and total, ready for PayPal Invoicing v2.
    */
-  suspend fun parseBill(bitmap: Bitmap?): Result<MuseSparkBillResult> = withContext(Dispatchers.IO) {
+  suspend fun parseBill(bitmap: Bitmap?): Result<GeminiBillResult> = withContext(Dispatchers.IO) {
     val apiKey = getApiKey()
     Log.i(TAG, "parseBill: Starting optical receipt itemization with Gemini Flash (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
 
@@ -213,7 +212,6 @@ class MuseSparkService(private val context: Context) {
    */
   private fun bitmapToBase64(bitmap: Bitmap, quality: Int = 80): String {
     val outputStream = ByteArrayOutputStream()
-    // Scale down if oversized to conserve token bandwidth (< 1024px)
     val maxDim = 1024
     val scaledBitmap = if (bitmap.width > maxDim || bitmap.height > maxDim) {
       val ratio = Math.min(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
@@ -227,17 +225,11 @@ class MuseSparkService(private val context: Context) {
   }
 
   /**
-   * Executes a multimodal request via Google Gemini Flash or OpenAI/Meta-compatible endpoint.
+   * Executes a multimodal request via Google Gemini Flash.
    */
   private fun callMultimodalApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
-    val model = getModel()
-    // Prefer Gemini Flash (default app-side visual engine)
-    return if (model.contains("gemini", ignoreCase = true) || effectiveKey.startsWith("AIzaSy") || effectiveKey.startsWith("AQ.")) {
-      callGeminiApi(effectiveKey, base64Image, textPrompt)
-    } else {
-      callOpenAiMetaApi(effectiveKey, base64Image, textPrompt)
-    }
+    return callGeminiApi(effectiveKey, base64Image, textPrompt)
   }
 
   /**
@@ -327,208 +319,131 @@ class MuseSparkService(private val context: Context) {
     }
   }
 
-  /**
-   * Executes a standard multimodal OpenAI/Meta-compatible Chat Completion API request.
-   */
-  private fun callOpenAiMetaApi(apiKey: String, base64Image: String, textPrompt: String): String? {
-    val endpointUrl = getBaseUrl().trimEnd('/') + "/chat/completions"
-    val url = URL(endpointUrl)
-    val connection = (url.openConnection() as HttpURLConnection).apply {
-      requestMethod = "POST"
-      connectTimeout = 12000
-      readTimeout = 18000
-      doOutput = true
-      setRequestProperty("Content-Type", "application/json")
-      setRequestProperty("Authorization", "Bearer $apiKey")
-    }
-
-    val messagesArray = JSONArray().apply {
-      put(JSONObject().apply {
-        put("role", "user")
-        val contentArray = JSONArray().apply {
-          put(JSONObject().apply {
-            put("type", "text")
-            put("text", textPrompt)
-          })
-          put(JSONObject().apply {
-            put("type", "image_url")
-            put("image_url", JSONObject().apply {
-              put("url", "data:image/jpeg;base64,$base64Image")
-            })
-          })
-        }
-        put("content", contentArray)
-      })
-    }
-
-    val requestBody = JSONObject().apply {
-      put("model", getModel())
-      put("messages", messagesArray)
-      put("max_tokens", 800)
-      put("temperature", 0.2)
-    }
-
-    OutputStreamWriter(connection.outputStream).use { writer ->
-      writer.write(requestBody.toString())
-      writer.flush()
-    }
-
-    val responseCode = connection.responseCode
-    return if (responseCode in 200..299) {
-      val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-      extractContentFromApiResponse(responseText)
-    } else {
-      val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-      Log.e(TAG, "Muse Spark HTTP $responseCode: $errText")
-      null
-    }
-  }
-
-  private fun extractContentFromApiResponse(responseJsonStr: String): String? {
+  private fun parseObjectJson(rawText: String): GeminiObjectResult? {
     return try {
-      val root = JSONObject(responseJsonStr)
-      val choices = root.getJSONArray("choices")
-      if (choices.length() > 0) {
-        val choice = choices.getJSONObject(0)
-        val message = choice.getJSONObject("message")
-        message.getString("content")
-      } else {
-        null
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Error extracting content from API response: ${e.message}")
-      null
-    }
-  }
-
-  private fun parseObjectJson(rawText: String): MuseSparkObjectResult? {
-    return try {
-      val cleanJson = cleanJsonFence(rawText)
-      val obj = JSONObject(cleanJson)
-      MuseSparkObjectResult(
-          productName = obj.optString("productName", "Smart Wearable Device"),
-          brand = obj.optString("brand", "Meta"),
-          category = obj.optString("category", "Electronics"),
-          estimatedPrice = obj.optDouble("estimatedPrice", 299.00),
-          currency = obj.optString("currency", "USD"),
-          shortDescription = obj.optString("shortDescription", "Detected premium device with 1-tap PayPal capture available."),
-          merchantName = obj.optString("merchantName", "Best Buy"),
-          shoppingUrl = obj.optString("shoppingUrl", "https://www.bestbuy.com"),
-          paypalSupported = obj.optBoolean("paypalSupported", true),
+      val cleaned = cleanJsonString(rawText)
+      val json = JSONObject(cleaned)
+      GeminiObjectResult(
+          productName = json.optString("productName", "Commercial Product"),
+          brand = json.optString("brand", "Verified Merchant"),
+          category = json.optString("category", "Retail"),
+          estimatedPrice = json.optDouble("estimatedPrice", 29.99),
+          currency = json.optString("currency", "USD"),
+          shortDescription = json.optString("shortDescription", "Detected physical item in camera field of view"),
+          merchantName = json.optString("merchantName", "Partner Store"),
+          shoppingUrl = json.optString("shoppingUrl", "https://www.paypal.com"),
+          paypalSupported = json.optBoolean("paypalSupported", true),
       )
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to parse object JSON: ${e.message}")
+      Log.e(TAG, "Failed to parse object JSON: ${e.message} | Raw: $rawText")
       null
     }
   }
 
-  private fun parseBillJson(rawText: String): MuseSparkBillResult? {
+  private fun parseBillJson(rawText: String): GeminiBillResult? {
     return try {
-      val cleanJson = cleanJsonFence(rawText)
-      val obj = JSONObject(cleanJson)
-      val itemsArray = obj.optJSONArray("items")
-      val itemsList = mutableListOf<PayPalOrderItem>()
-      if (itemsArray != null) {
-        for (i in 0 until itemsArray.length()) {
-          val itemObj = itemsArray.getJSONObject(i)
-          itemsList.add(
-              PayPalOrderItem(
-                  name = itemObj.optString("name", "Item ${i + 1}"),
-                  quantity = itemObj.optInt("quantity", 1),
-                  unitAmount = itemObj.optDouble("unitAmount", 10.0),
-                  tax = itemObj.optDouble("tax", 0.0),
-              )
-          )
-        }
+      val cleaned = cleanJsonString(rawText)
+      val json = JSONObject(cleaned)
+      val merchantName = json.optString("merchantName", "Restaurant Bill")
+      val itemsArray = json.optJSONArray("items") ?: JSONArray()
+      val items = mutableListOf<PayPalOrderItem>()
+      for (i in 0 until itemsArray.length()) {
+        val it = itemsArray.getJSONObject(i)
+        items.add(
+            PayPalOrderItem(
+                name = it.optString("name", "Item ${i + 1}"),
+                quantity = it.optInt("quantity", 1),
+                unitAmount = it.optDouble("unitAmount", 10.0),
+                tax = it.optDouble("tax", 0.0),
+            )
+        )
       }
-      val subtotal = obj.optDouble("subtotal", 30.0)
-      val taxTotal = obj.optDouble("taxTotal", 2.5)
-      val tip = obj.optDouble("tip", 5.0)
-      val grandTotal = obj.optDouble("grandTotal", subtotal + taxTotal + tip)
-      val split = obj.optDouble("suggestedSplitPerPerson", grandTotal / 2.0)
+      val subtotal = json.optDouble("subtotal", items.sumOf { it.unitAmount * it.quantity })
+      val taxTotal = json.optDouble("taxTotal", items.sumOf { it.tax })
+      val tip = json.optDouble("tip", 0.0)
+      val grandTotal = json.optDouble("grandTotal", subtotal + taxTotal + tip)
+      val suggestedSplit = json.optDouble("suggestedSplitPerPerson", (grandTotal / 2.0).coerceAtLeast(1.0))
 
-      MuseSparkBillResult(
-          merchantName = obj.optString("merchantName", "Bistro & Cafe"),
-          items = itemsList,
+      GeminiBillResult(
+          merchantName = merchantName,
+          items = items,
           subtotal = subtotal,
           taxTotal = taxTotal,
           tip = tip,
           grandTotal = grandTotal,
-          suggestedSplitPerPerson = split,
+          suggestedSplitPerPerson = suggestedSplit,
       )
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to parse bill JSON: ${e.message}")
+      Log.e(TAG, "Failed to parse bill JSON: ${e.message} | Raw: $rawText")
       null
     }
   }
 
-  private fun cleanJsonFence(text: String): String {
-    var s = text.trim()
-    if (s.startsWith("```json")) s = s.removePrefix("```json")
-    if (s.startsWith("```")) s = s.removePrefix("```")
-    if (s.endsWith("```")) s = s.removeSuffix("```")
-    return s.trim()
+  private fun cleanJsonString(raw: String): String {
+    val trimmed = raw.trim()
+    val start = trimmed.indexOf('{')
+    val end = trimmed.lastIndexOf('}')
+    return if (start != -1 && end != -1 && end > start) {
+      trimmed.substring(start, end + 1)
+    } else {
+      trimmed
+    }
   }
 
-  /**
-   * Generates realistic simulated product recognitions for immediate judge evaluation.
-   */
-  private fun generateSmartObjectFallback(): MuseSparkObjectResult {
-    val samples = listOf(
-        MuseSparkObjectResult(
+  // Pre-configured commercial fallback items for reliable live demonstrations
+  private fun generateSmartObjectFallback(): GeminiObjectResult {
+    val items = listOf(
+        GeminiObjectResult(
             productName = "Sony WH-1000XM5 Wireless Headphones",
             brand = "Sony",
-            category = "Consumer Electronics",
+            category = "Electronics",
             estimatedPrice = 348.00,
             currency = "USD",
-            shortDescription = "Industry-leading noise canceling wireless headphones in Black.",
+            shortDescription = "Industry-leading noise canceling wireless over-ear headphones with 2 processors.",
             merchantName = "Best Buy",
             shoppingUrl = "https://www.bestbuy.com/site/sony-wh-1000xm5/6505727.p",
             paypalSupported = true,
         ),
-        MuseSparkObjectResult(
-            productName = "Nike Air Zoom Pegasus 40 Running Shoes",
-            brand = "Nike",
-            category = "Footwear & Sports",
-            estimatedPrice = 130.00,
+        GeminiObjectResult(
+            productName = "Aer Travel Pack 3 (X-Pac)",
+            brand = "Aer",
+            category = "Travel & Lifestyle",
+            estimatedPrice = 279.00,
             currency = "USD",
-            shortDescription = "Responsive daily road running shoes with dual Zoom Air units.",
-            merchantName = "Nike Official Store",
-            shoppingUrl = "https://www.nike.com/t/air-zoom-pegasus-40",
+            shortDescription = "Durable carry-on backpack engineered for smart travel and everyday tech carry.",
+            merchantName = "Aer Official Store",
+            shoppingUrl = "https://aersf.com/products/travel-pack-3-x-pac",
             paypalSupported = true,
         ),
-        MuseSparkObjectResult(
-            productName = "Meta Quest 3 512GB VR Headset",
-            brand = "Meta",
-            category = "Virtual & Mixed Reality",
-            estimatedPrice = 499.99,
+        GeminiObjectResult(
+            productName = "Ember Temperature Control Smart Mug 2",
+            brand = "Ember",
+            category = "Home & Kitchen",
+            estimatedPrice = 149.95,
             currency = "USD",
-            shortDescription = "Breakthrough mixed reality headset with 4K+ Infinite Display.",
+            shortDescription = "14 oz app-controlled heated coffee mug that keeps beverages at your precise temperature.",
             merchantName = "Target",
-            shoppingUrl = "https://www.target.com/p/meta-quest-3",
+            shoppingUrl = "https://www.target.com/p/ember-mug-2-14oz/-/A-79848523",
             paypalSupported = true,
         )
     )
-    return samples[(Math.random() * samples.size).toInt()]
+    return items.random()
   }
 
-  /**
-   * Generates realistic simulated bill breakdowns for instant offline testing.
-   */
-  private fun generateSmartBillFallback(): MuseSparkBillResult {
-    val items = listOf(
-        PayPalOrderItem(name = "Truffle Tagliatelle", quantity = 1, unitAmount = 24.00, tax = 2.10),
-        PayPalOrderItem(name = "Margherita Wood-Fired Pizza", quantity = 1, unitAmount = 19.50, tax = 1.70),
-        PayPalOrderItem(name = "San Pellegrino Sparkling (750ml)", quantity = 2, unitAmount = 5.00, tax = 0.85),
-        PayPalOrderItem(name = "Classic Tiramisu", quantity = 1, unitAmount = 9.50, tax = 0.80),
+  private fun generateSmartBillFallback(): GeminiBillResult {
+    val sampleItems = listOf(
+        PayPalOrderItem(name = "Truffle Mushroom Pizza", quantity = 1, unitAmount = 24.00, tax = 2.10),
+        PayPalOrderItem(name = "Burrata Caprese Salad", quantity = 1, unitAmount = 16.50, tax = 1.45),
+        PayPalOrderItem(name = "Sparkling San Pellegrino (750ml)", quantity = 2, unitAmount = 7.00, tax = 0.60),
+        PayPalOrderItem(name = "Tiramisu Classico", quantity = 1, unitAmount = 11.00, tax = 0.95),
     )
-    val subtotal = items.sumOf { it.unitAmount * it.quantity }
-    val taxTotal = items.sumOf { it.tax }
-    val tip = 12.00
+    val subtotal = sampleItems.sumOf { it.unitAmount * it.quantity }
+    val taxTotal = sampleItems.sumOf { it.tax }
+    val tip = 13.00
     val grandTotal = subtotal + taxTotal + tip
-    return MuseSparkBillResult(
-        merchantName = "Luigi's Italian Kitchen",
-        items = items,
+    return GeminiBillResult(
+        merchantName = "Osteria Morini Italian Bistro",
+        items = sampleItems,
         subtotal = subtotal,
         taxTotal = taxTotal,
         tip = tip,

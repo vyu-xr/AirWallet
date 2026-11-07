@@ -96,12 +96,12 @@ data class CameraUiState(
     val billSplitSelectedFriendIds: Set<String> = emptySet(),
     val isDeviceInStandby: Boolean = false,
     val deviceStatusMessage: String? = null,
-    val museSparkObjectResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkObjectResult? = null,
-    val museSparkBillResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.MuseSparkBillResult? = null,
-    val isMuseSparkLoading: Boolean = false,
-    val museSparkLoadingPrompt: String = "",
-    val showMuseSparkDialog: Boolean = false,
-    val museSparkActiveTab: String = "object",
+    val geminiObjectResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.GeminiObjectResult? = null,
+    val geminiBillResult: com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai.GeminiBillResult? = null,
+    val isGeminiLoading: Boolean = false,
+    val geminiLoadingPrompt: String = "",
+    val showGeminiDialog: Boolean = false,
+    val geminiActiveTab: String = "object",
 ) {
   val isDisplayActive: Boolean
     get() = displayState == com.meta.wearable.dat.display.types.DisplayState.STARTED

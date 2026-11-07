@@ -271,6 +271,8 @@ fun WalletMainScreen(
         scanMode = "glasses"
         currentScreen = WalletScreen.SCAN
       }
+    } else if (ui.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT || ui.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL) {
+      // Keep stream and session active for Visual AI scanning
     } else {
       if (ui.isStreaming || ui.streamState != StreamState.STOPPED) {
         cameraViewModel.stopStreaming()
@@ -683,17 +685,17 @@ private fun WalletHomeScreen(
     )
   }
 
-  if (ui.showMuseSparkDialog) {
-    MuseSparkResultDialog(
+  if (ui.showGeminiDialog) {
+    GeminiResultDialog(
         cameraViewModel = cameraViewModel,
         ui = ui,
-        onDismiss = { cameraViewModel.dismissMuseSparkDialog() },
+        onDismiss = { cameraViewModel.dismissGeminiDialog() },
         onOpenApiKeyDialog = { showApiKeyDialog = true },
     )
   }
 
   if (showApiKeyDialog) {
-    MuseSparkApiKeyDialog(
+    GeminiApiKeyDialog(
         cameraViewModel = cameraViewModel,
         onDismiss = { showApiKeyDialog = false },
     )
@@ -841,21 +843,7 @@ private fun WalletHomeScreen(
                   fontWeight = FontWeight.Bold,
               )
             }
-          } else if (!ui.isDisplayCapable) {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color(0xFF2C2C2E),
-            ) {
-              Text(
-                  text = "Voice Ready",
-                  color = AppColor.Lime,
-                  fontSize = 11.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-              )
-            }
           } else if (!ui.isDisplayActive) {
-          } else if (!ui.isDisplayActive && !ui.isSessionActive) {
             Button(
                 onClick = { cameraViewModel.startGlassesDisplayHome() },
                 shape = RoundedCornerShape(50),
@@ -1013,7 +1001,7 @@ private fun WalletHomeScreen(
         }
       }
 
-      // Row 4: Meta Muse Spark Multimodal Visual AI (Scan Object & Scan Bill)
+      // Row 4: Google Gemini 2.0 Flash Multimodal Visual AI (Scan Object & Scan Bill)
       Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -4014,27 +4002,27 @@ fun VoiceQaListeningModal(
 }
 
 // ==========================================
-// SCREEN 9: META MUSE SPARK MULTIMODAL DIALOGS
-// ==========================================
+// SCREEN 9: GOOGLE GEMINI 2.0 FLASH MULTIMODAL DIALOGS
+// ====================================================
 
 @Composable
-fun MuseSparkResultDialog(
+fun GeminiResultDialog(
     cameraViewModel: CameraViewModel,
     ui: CameraUiState,
     onDismiss: () -> Unit,
     onOpenApiKeyDialog: () -> Unit,
 ) {
   val context = LocalContext.current
-  val objResult = ui.museSparkObjectResult
-  val billResult = ui.museSparkBillResult
-  val isLoading = ui.isMuseSparkLoading
-  val activeTab = ui.museSparkActiveTab
+  val objResult = ui.geminiObjectResult
+  val billResult = ui.geminiBillResult
+  val isLoading = ui.isGeminiLoading
+  val activeTab = ui.geminiActiveTab
 
   val rescanObjectPhotoLauncher = rememberLauncherForActivityResult(
       contract = ActivityResultContracts.TakePicturePreview()
   ) { capturedBitmap ->
     if (capturedBitmap != null) {
-      Log.i("MuseSparkDialog", "Object photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      Log.i("GeminiDialog", "Object photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
       cameraViewModel.onScanObjectClicked(bitmap = capturedBitmap, fromGlasses = false)
     }
   }
@@ -4043,7 +4031,7 @@ fun MuseSparkResultDialog(
       contract = ActivityResultContracts.TakePicturePreview()
   ) { capturedBitmap ->
     if (capturedBitmap != null) {
-      Log.i("MuseSparkDialog", "Bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      Log.i("GeminiDialog", "Bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
       cameraViewModel.onScanBillClicked(bitmap = capturedBitmap, fromGlasses = false)
     }
   }
@@ -4196,7 +4184,7 @@ fun MuseSparkResultDialog(
                 modifier = Modifier.size(42.dp),
             )
             Text(
-                text = ui.museSparkLoadingPrompt.ifBlank { "Processing frame with Google Gemini 2.0 Flash..." },
+                text = ui.geminiLoadingPrompt.ifBlank { "Processing frame with Google Gemini 2.0 Flash..." },
                 color = AppColor.TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -4292,7 +4280,7 @@ fun MuseSparkResultDialog(
 
           // 1-Tap Purchase Button
           Button(
-              onClick = { cameraViewModel.executeMuseSparkObjectPurchase() },
+              onClick = { cameraViewModel.executeGeminiObjectPurchase() },
               modifier = Modifier.fillMaxWidth().height(48.dp),
               shape = RoundedCornerShape(50),
               colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
@@ -4322,7 +4310,7 @@ fun MuseSparkResultDialog(
                     val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(objResult.shoppingUrl))
                     context.startActivity(intent)
                   } catch (e: Exception) {
-                    Log.e("MuseSparkDialog", "Cannot open URL: ${e.message}")
+                    Log.e("GeminiDialog", "Cannot open URL: ${e.message}")
                   }
                 },
                 modifier = Modifier.weight(1f).height(40.dp),
@@ -4434,7 +4422,7 @@ fun MuseSparkResultDialog(
 
           // Split Bill Button
           Button(
-              onClick = { cameraViewModel.executeMuseSparkBillSplit() },
+              onClick = { cameraViewModel.executeGeminiBillSplit() },
               modifier = Modifier.fillMaxWidth().height(48.dp),
               shape = RoundedCornerShape(50),
               colors = ButtonDefaults.buttonColors(containerColor = AppColor.Lime),
@@ -4472,11 +4460,11 @@ fun MuseSparkResultDialog(
 }
 
 @Composable
-fun MuseSparkApiKeyDialog(
+fun GeminiApiKeyDialog(
     cameraViewModel: CameraViewModel,
     onDismiss: () -> Unit,
 ) {
-  var keyText by remember { mutableStateOf(cameraViewModel.museSparkService.getApiKey()) }
+  var keyText by remember { mutableStateOf(cameraViewModel.geminiFlashService.getApiKey()) }
 
   AlertDialog(
       onDismissRequest = onDismiss,
@@ -4521,7 +4509,7 @@ fun MuseSparkApiKeyDialog(
       confirmButton = {
         Button(
             onClick = {
-              cameraViewModel.museSparkService.setApiKey(keyText)
+              cameraViewModel.geminiFlashService.setApiKey(keyText)
               onDismiss()
             },
             colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
