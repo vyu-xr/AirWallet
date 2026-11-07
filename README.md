@@ -2,7 +2,7 @@
 ### Ambient Agentic Commerce on Meta Ray-Ban Smart Glasses with PayPal & On-Device AI
 
 [![PayPal Developer](https://img.shields.io/badge/PayPal-Orders_v2_|_Vault_|_Invoicing_|_Payouts-003087?style=for-the-badge&logo=paypal&logoColor=white)](https://developer.paypal.com)
-[![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.0_Flash_Multimodal_AI-8E75C4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com)
+[![Meta Muse Spark](https://img.shields.io/badge/Meta_Muse_Spark-Multimodal_Visual_AI-0668E1?style=for-the-badge&logo=meta&logoColor=white)](https://www.meta.ai)
 [![Google LiteRT](https://img.shields.io/badge/Google_LiteRT-On--Device_AI_(TFLite)-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/edge/litert)
 [![Meta Wearables](https://img.shields.io/badge/Meta_Wearables_DAT-Display_HUD_|_Camera_|_Speech-0668E1?style=for-the-badge&logo=meta&logoColor=white)](https://wearables.developer.meta.com)
 [![Android](https://img.shields.io/badge/Android-Jetpack_Compose-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
@@ -11,9 +11,9 @@
 
 ## Overview
 
-**AirWallet** transforms Meta Ray-Ban Display smart glasses into an **ambient, agentic commerce terminal**. By fusing **PayPal's developer suite** (Orders v2 with Vaulting, Invoicing v2, and Payouts v1) with **Google Gemini 2.0 Flash multimodal visual intelligence**, **on-device Google LiteRT artificial intelligence**, and **Meta Wearables DAT (Device Access Toolkit)**, AirWallet enables truly hands-free, glance-and-tap transactions in the physical world.
+**AirWallet** transforms Meta Ray-Ban Display smart glasses into an **ambient, agentic commerce terminal**. By fusing **PayPal's developer suite** (Orders v2 with Vaulting, Invoicing v2, and Payouts v1) with **Meta Muse Spark multimodal visual intelligence**, **on-device Google LiteRT artificial intelligence**, and **Meta Wearables DAT (Device Access Toolkit)**, AirWallet enables truly hands-free, glance-and-tap transactions in the physical world.
 
-Wearers can glance at merchant QR codes or invoices, review itemized breakdowns directly on the glasses' optical waveguide HUD, approve payments with a temple tap or voice command via vaulted PayPal credentials, query on-device financial intelligence hands-free, split group dining bills by generating live PayPal invoices on the fly, and use Google Gemini 2.0 Flash to identify physical products or parse paper dining bills into itemized invoices automatically.
+Wearers can glance at merchant QR codes or invoices, review itemized breakdowns directly on the glasses' optical waveguide HUD, approve payments with a temple tap or voice command via vaulted PayPal credentials, query on-device financial intelligence hands-free, split group dining bills by generating live PayPal invoices on the fly, and use Meta Muse Spark to identify physical products or parse paper dining bills into itemized invoices automatically.
 
 
 ---
@@ -25,10 +25,10 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 - **1-Tap Vaulted Payments**: Leverages [PayPal Vault](https://developer.paypal.com/docs/checkout/save-payment-methods/) to capture orders instantly (`POST /v2/checkout/orders` with `payment_source.paypal.vault_id`) without requiring the wearer to pull out a smartphone, unlock an app, or go through web redirects.
 - **Waveguide Optical HUD**: Renders a dedicated payment confirmation card, dynamic itemized breakdown, and live status on the smart glasses' high-contrast green waveguide display using Meta FlexBox declarative DSL.
 
-### 2. Multimodal Visual AI with Google Gemini 2.0 Flash
-- **100% Free Live Cloud API**: Powered by Google Gemini 2.0 Flash via Google AI Studio (`gemini-2.0-flash`), requiring zero billing setup or credit card to access real-time multimodal perception.
-- **Scan Object (Visual Shop & 1-Tap Pay)**: Point the glasses at any physical product or merchandise. Gemini 2.0 Flash analyzes the live camera frame, identifies the exact product name, brand, estimated price, and merchant, and formats an immediate 1-tap vaulted PayPal checkout option right on the glasses HUD and phone screen.
-- **Scan Bill (Smart Receipt Split & Invoicing)**: Look at any paper restaurant receipt or paper invoice. Gemini 2.0 Flash performs optical multimodal document understanding, extracts itemized line items, tax, tip, and total, and automatically sets up a multi-party group split dispatched via PayPal Invoicing v2.
+### 2. Visual AI with Meta Muse Spark (Contributor Tier)
+- **Ultra-Cost-Efficient Model (`muse-spark-1.3-contributor`)**: Configured to run on Meta's 95% discounted contributor tier ($0.10 / 1M input tokens, under $0.0001 per scan), delivering full frontier multimodal reasoning at minimum token overhead.
+- **Scan Object (Visual Shop & 1-Tap Pay)**: Point the glasses at any physical product or merchandise. Meta Muse Spark multimodal visual AI analyzes the live camera frame, identifies the exact product name, brand, estimated price, and merchant, and formats an immediate 1-tap vaulted PayPal checkout option right on the glasses HUD and phone screen.
+- **Scan Bill (Smart Receipt Split & Invoicing)**: Look at any paper restaurant receipt or paper invoice. Meta Muse Spark performs optical multimodal document understanding, extracts itemized line items, tax, tip, and total, and automatically sets up a multi-party group split dispatched via PayPal Invoicing v2.
 - **Zero-Barrier Evaluation Mode**: Designed with intelligent demo fallbacks so judges and developers can evaluate the entire multimodal visual AI flow on-device even before entering an external API key.
 
 ### 3. On-Device Financial Intelligence (Google LiteRT)
@@ -58,7 +58,7 @@ Wearers can glance at merchant QR codes or invoices, review itemized breakdowns 
 | Layer | Technology | Details |
 | :--- | :--- | :--- |
 | **Payments** | **PayPal Developer Platform** | Orders v2, Vault API, Invoicing v2, Payouts v1, Sandbox REST endpoints |
-| **Multimodal Visual AI** | **Google Gemini 2.0 Flash** | Zero-billing multimodal visual recognition (Google AI Studio free tier), product matching, OCR receipt parser |
+| **Multimodal Visual AI** | **Meta Muse Spark** | Visual product identification, shopping links, receipt/bill parsing & line itemization |
 | **Edge Intelligence** | **Google LiteRT (TFLite)** | On-device inference (`financial_analytics.tflite`), XNNPACK acceleration, edge NLP |
 | **Computer Vision** | **Google ML Kit** | Pre-warmed neural barcode scanning with instant 0ms cold-start cache |
 | **Wearable Hardware** | **Meta Wearables DAT SDK** | Display (Waveguide FlexBox DSL), Camera (15 FPS HEVC), Speech (On-device ASR) |

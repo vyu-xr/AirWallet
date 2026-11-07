@@ -856,7 +856,7 @@ class CameraViewModel(
    * Identifies product details, best merchant prices, and enables 1-tap PayPal capture.
    */
   fun onScanObjectClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
-    Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search")
+    Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     _uiState.update {
       it.copy(
           isMuseSparkLoading = true,
@@ -908,7 +908,7 @@ class CameraViewModel(
    * Extracts itemized breakdown, tax, tip, and prepares PayPal Invoicing v2 split.
    */
   fun onScanBillClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
-    Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing")
+    Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     _uiState.update {
       it.copy(
           isMuseSparkLoading = true,

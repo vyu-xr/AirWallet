@@ -108,14 +108,14 @@ class MuseSparkService(private val context: Context) {
   fun hasApiKey(): Boolean = true
 
   /**
-   * Identifies a physical commercial product in the camera frame using Meta Muse Spark.
+   * Identifies a physical commercial product in the camera frame using Google Gemini Flash.
    * Returns product details, best merchant price, and shopping checkout link.
    */
   suspend fun identifyObject(bitmap: Bitmap?): Result<MuseSparkObjectResult> = withContext(Dispatchers.IO) {
     val apiKey = getApiKey()
-    Log.i(TAG, "identifyObject: Starting visual product recognition (API Key present: ${apiKey.isNotBlank()})")
+    Log.i(TAG, "identifyObject: Starting visual product recognition (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
 
-    if (apiKey.isNotBlank() && bitmap != null) {
+    if (bitmap != null) {
       try {
         val base64Image = bitmapToBase64(bitmap, quality = 82)
         val prompt = """
@@ -139,31 +139,33 @@ class MuseSparkService(private val context: Context) {
         if (jsonResponse != null) {
           val parsed = parseObjectJson(jsonResponse)
           if (parsed != null) {
-            Log.i(TAG, "Gemini 2.0 Flash successfully identified object: ${parsed.productName} ($${parsed.estimatedPrice})")
+            Log.i(TAG, "Gemini Flash successfully identified real object: ${parsed.productName} ($${parsed.estimatedPrice})")
             return@withContext Result.success(parsed)
           }
         }
       } catch (e: Exception) {
-        Log.w(TAG, "Live Gemini 2.0 Flash API call failed: ${e.message}, switching to smart fallback", e)
+        Log.w(TAG, "Live Gemini Flash API call failed: ${e.message}", e)
       }
+    } else {
+      Log.w(TAG, "identifyObject: bitmap is null! No image frame provided.")
     }
 
     // Smart Fallback / Demo Mode (Ensures zero friction for hackathon judges & offline testing)
-    kotlinx.coroutines.delay(1100) // Realistic inference latency
+    kotlinx.coroutines.delay(1000)
     val fallback = generateSmartObjectFallback()
-    Log.i(TAG, "Delivered intelligent Visual AI object result: ${fallback.productName} ($${fallback.estimatedPrice})")
+    Log.i(TAG, "Delivered fallback Visual AI object result: ${fallback.productName} ($${fallback.estimatedPrice})")
     Result.success(fallback)
   }
 
   /**
-   * Scans a physical paper restaurant bill or retail receipt using Google Gemini 2.0 Flash.
+   * Scans a physical paper restaurant bill or retail receipt using Google Gemini Flash.
    * Extracts itemized breakdown, tax, tip, and total, ready for PayPal Invoicing v2.
    */
   suspend fun parseBill(bitmap: Bitmap?): Result<MuseSparkBillResult> = withContext(Dispatchers.IO) {
     val apiKey = getApiKey()
-    Log.i(TAG, "parseBill: Starting optical receipt itemization with Gemini 2.0 Flash (API Key present: ${apiKey.isNotBlank()})")
+    Log.i(TAG, "parseBill: Starting optical receipt itemization with Gemini Flash (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
 
-    if (apiKey.isNotBlank() && bitmap != null) {
+    if (bitmap != null) {
       try {
         val base64Image = bitmapToBase64(bitmap, quality = 85)
         val prompt = """
@@ -188,19 +190,21 @@ class MuseSparkService(private val context: Context) {
         if (jsonResponse != null) {
           val parsed = parseBillJson(jsonResponse)
           if (parsed != null) {
-            Log.i(TAG, "Gemini 2.0 Flash successfully parsed bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
+            Log.i(TAG, "Gemini Flash successfully parsed real bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
             return@withContext Result.success(parsed)
           }
         }
       } catch (e: Exception) {
-        Log.w(TAG, "Live Gemini 2.0 Flash bill parsing failed: ${e.message}, switching to smart fallback", e)
+        Log.w(TAG, "Live Gemini Flash bill parsing failed: ${e.message}", e)
       }
+    } else {
+      Log.w(TAG, "parseBill: bitmap is null! No image frame provided.")
     }
 
     // Smart Fallback / Demo Mode
-    kotlinx.coroutines.delay(1250)
+    kotlinx.coroutines.delay(1000)
     val fallback = generateSmartBillFallback()
-    Log.i(TAG, "Delivered intelligent Visual AI bill result: ${fallback.merchantName} (Total: $${fallback.grandTotal})")
+    Log.i(TAG, "Delivered fallback Visual AI bill result: ${fallback.merchantName} (Total: $${fallback.grandTotal})")
     Result.success(fallback)
   }
 

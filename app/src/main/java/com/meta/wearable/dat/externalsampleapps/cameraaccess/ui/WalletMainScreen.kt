@@ -656,6 +656,25 @@ private fun WalletHomeScreen(
   var selectedTxForReceipt by remember { mutableStateOf<WalletTransaction?>(null) }
   var showApiKeyDialog by remember { mutableStateOf(false) }
 
+  // High-resolution real-world camera photo capture launchers for Visual AI
+  val takeObjectPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("WalletHomeScreen", "Object photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanObjectClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
+  val takeBillPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("WalletHomeScreen", "Bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanBillClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
   if (selectedTxForReceipt != null) {
     PayPalSmartReceiptDialog(
         tx = selectedTxForReceipt!!,
@@ -1006,7 +1025,13 @@ private fun WalletHomeScreen(
             border = BorderStroke(1.dp, AppColor.Coral.copy(alpha = 0.35f)),
             modifier = Modifier
                 .weight(1f)
-                .clickable { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+                .clickable {
+                  if (ui.isStreaming) {
+                    cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                  } else {
+                    takeObjectPhotoLauncher.launch(null)
+                  }
+                },
         ) {
           Row(
               modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
@@ -1033,7 +1058,13 @@ private fun WalletHomeScreen(
             border = BorderStroke(1.dp, AppColor.Lime.copy(alpha = 0.35f)),
             modifier = Modifier
                 .weight(1f)
-                .clickable { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+                .clickable {
+                  if (ui.isStreaming) {
+                    cameraViewModel.onScanBillClicked(fromGlasses = true)
+                  } else {
+                    takeBillPhotoLauncher.launch(null)
+                  }
+                },
         ) {
           Row(
               modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
@@ -1670,6 +1701,26 @@ private fun WalletScannerScreen(
   val isGlasses = mode == "glasses"
   val accent = if (isGlasses) AppColor.Lime else AppColor.Indigo
 
+  var livePreviewView by remember { mutableStateOf<PreviewView?>(null) }
+
+  val scannerObjectPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("WalletScannerScreen", "Scanner object photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanObjectClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
+  val scannerBillPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("WalletScannerScreen", "Scanner bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanBillClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
   Column(
       modifier = Modifier.fillMaxSize(),
       verticalArrangement = Arrangement.SpaceBetween,
@@ -1921,6 +1972,7 @@ private fun WalletScannerScreen(
             onDispose {
               scannerInstance?.shutdown()
               scannerInstance = null
+              livePreviewView = null
             }
           }
 
@@ -1935,6 +1987,7 @@ private fun WalletScannerScreen(
                 PreviewView(context).apply {
                   implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                   scaleType = PreviewView.ScaleType.FILL_CENTER
+                  livePreviewView = this
                   val scanner = FastQrScanner(
                       context = context,
                       lifecycleOwner = lifecycleOwner,
@@ -2044,13 +2097,23 @@ private fun WalletScannerScreen(
           )
         }
 
-        // Meta Muse Spark Multimodal Triggers in Scanner
+        // Google Gemini Multimodal Triggers in Scanner (Real Live Camera Frame)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           Button(
-              onClick = { cameraViewModel.onScanObjectClicked(fromGlasses = isGlasses) },
+              onClick = {
+                val liveBmp = if (isGlasses) null else livePreviewView?.bitmap
+                if (liveBmp != null) {
+                  Log.i("WalletScannerScreen", "Scanning real frame from live CameraX preview: ${liveBmp.getWidth()}x${liveBmp.getHeight()}")
+                  cameraViewModel.onScanObjectClicked(bitmap = liveBmp, fromGlasses = false)
+                } else if (!isGlasses) {
+                  scannerObjectPhotoLauncher.launch(null)
+                } else {
+                  cameraViewModel.onScanObjectClicked(bitmap = null, fromGlasses = true)
+                }
+              },
               modifier = Modifier.weight(1f).height(42.dp),
               shape = RoundedCornerShape(50),
               colors = ButtonDefaults.buttonColors(containerColor = AppColor.Coral),
@@ -2065,7 +2128,17 @@ private fun WalletScannerScreen(
           }
 
           Button(
-              onClick = { cameraViewModel.onScanBillClicked(fromGlasses = isGlasses) },
+              onClick = {
+                val liveBmp = if (isGlasses) null else livePreviewView?.bitmap
+                if (liveBmp != null) {
+                  Log.i("WalletScannerScreen", "Scanning real bill from live CameraX preview: ${liveBmp.getWidth()}x${liveBmp.getHeight()}")
+                  cameraViewModel.onScanBillClicked(bitmap = liveBmp, fromGlasses = false)
+                } else if (!isGlasses) {
+                  scannerBillPhotoLauncher.launch(null)
+                } else {
+                  cameraViewModel.onScanBillClicked(bitmap = null, fromGlasses = true)
+                }
+              },
               modifier = Modifier.weight(1f).height(42.dp),
               shape = RoundedCornerShape(50),
               colors = ButtonDefaults.buttonColors(containerColor = AppColor.Lime),
@@ -3957,6 +4030,24 @@ fun MuseSparkResultDialog(
   val isLoading = ui.isMuseSparkLoading
   val activeTab = ui.museSparkActiveTab
 
+  val rescanObjectPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("MuseSparkDialog", "Object photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanObjectClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
+  val rescanBillPhotoLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.TakePicturePreview()
+  ) { capturedBitmap ->
+    if (capturedBitmap != null) {
+      Log.i("MuseSparkDialog", "Bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
+      cameraViewModel.onScanBillClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
   Dialog(
       onDismissRequest = onDismiss,
       properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -4041,7 +4132,10 @@ fun MuseSparkResultDialog(
                 color = if (isObj) AppColor.Coral else Color.Transparent,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+                    .clickable {
+                      if (ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                      else rescanObjectPhotoLauncher.launch(null)
+                    },
             ) {
               Row(
                   modifier = Modifier.padding(vertical = 8.dp),
@@ -4064,7 +4158,10 @@ fun MuseSparkResultDialog(
                 color = if (!isObj) AppColor.Lime else Color.Transparent,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+                    .clickable {
+                      if (ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
+                      else rescanBillPhotoLauncher.launch(null)
+                    },
             ) {
               Row(
                   modifier = Modifier.padding(vertical = 8.dp),
@@ -4236,7 +4333,10 @@ fun MuseSparkResultDialog(
             }
 
             OutlinedButton(
-                onClick = { cameraViewModel.onScanObjectClicked(fromGlasses = false) },
+                onClick = {
+                  if (ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                  else rescanObjectPhotoLauncher.launch(null)
+                },
                 modifier = Modifier.weight(1f).height(40.dp),
                 shape = RoundedCornerShape(50),
                 border = BorderStroke(1.dp, Color(0xFF383838)),
@@ -4355,7 +4455,10 @@ fun MuseSparkResultDialog(
 
           // Secondary Rescan
           OutlinedButton(
-              onClick = { cameraViewModel.onScanBillClicked(fromGlasses = false) },
+              onClick = {
+                if (ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
+                else rescanBillPhotoLauncher.launch(null)
+              },
               modifier = Modifier.fillMaxWidth().height(40.dp),
               shape = RoundedCornerShape(50),
               border = BorderStroke(1.dp, Color(0xFF383838)),
