@@ -553,17 +553,21 @@ class CameraViewModel(
       }
     }
 
-    // Manage QR scanning loop and enforce stream shutdown when not in SCAN_QR mode
+    // Manage QR scanning loop and enforce stream shutdown when not in a camera mode
     viewModelScope.launch {
       _uiState.collect { camState ->
-        if (camState.glassesDisplayScreen != GlassesDisplayScreen.SCAN_QR) {
+        val isCameraMode = camState.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR ||
+            camState.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT ||
+            camState.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL
+
+        if (!isCameraMode) {
           if (camState.isStreaming && camState.streamState != StreamState.STOPPING && camState.streamState != StreamState.STOPPED) {
             stopStreaming()
           }
           stopQrScanningLoop()
-        } else if (camState.isStreaming && camState.paymentState is PaymentState.Idle && camState.isAutoScanningQr) {
+        } else if (camState.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR && camState.isStreaming && camState.paymentState is PaymentState.Idle && camState.isAutoScanningQr) {
           startQrScanningLoop()
-        } else if (!camState.isStreaming || camState.paymentState !is PaymentState.Idle) {
+        } else if (!camState.isStreaming || camState.glassesDisplayScreen != GlassesDisplayScreen.SCAN_QR || camState.paymentState !is PaymentState.Idle) {
           stopQrScanningLoop()
         }
       }
@@ -878,9 +882,9 @@ class CameraViewModel(
         if (s != null && display == null && isDisplayCapableDevice(s)) {
           attachDisplayCapability(s)
         }
-      }
-      if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
-        startStreaming()
+        if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
+          startStreaming()
+        }
       }
     }
 
@@ -888,16 +892,21 @@ class CameraViewModel(
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 18) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35) {
+          if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
+            withContext(Dispatchers.Main) { startStreaming() }
+          }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
         val currentStream = stream
         if (currentStream != null && _uiState.value.isStreaming) {
           try {
+            Log.i(TAG, "Capturing live photo from glasses camera for Gemini Flash...")
             currentStream.capturePhoto()
                 .onSuccess { photoData ->
                   targetBitmap = decodePhotoForScanning(photoData)
+                  Log.i(TAG, "Successfully captured and decoded glasses photo: ${targetBitmap?.width}x${targetBitmap?.height}")
                 }
                 .onFailure { err, _ ->
                   Log.w(TAG, "Glasses capturePhoto failed for object: ${err.description}")
@@ -905,6 +914,8 @@ class CameraViewModel(
           } catch (e: Exception) {
             Log.w(TAG, "Could not capture glasses photo for Visual AI: ${e.message}")
           }
+        } else {
+          Log.w(TAG, "Glasses stream not ready after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
       }
 
@@ -956,9 +967,9 @@ class CameraViewModel(
         if (s != null && display == null && isDisplayCapableDevice(s)) {
           attachDisplayCapability(s)
         }
-      }
-      if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
-        startStreaming()
+        if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream) {
+          startStreaming()
+        }
       }
     }
 
@@ -966,16 +977,21 @@ class CameraViewModel(
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 18) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35) {
+          if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
+            withContext(Dispatchers.Main) { startStreaming() }
+          }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
         val currentStream = stream
         if (currentStream != null && _uiState.value.isStreaming) {
           try {
+            Log.i(TAG, "Capturing live photo from glasses camera for bill parsing...")
             currentStream.capturePhoto()
                 .onSuccess { photoData ->
                   targetBitmap = decodePhotoForScanning(photoData)
+                  Log.i(TAG, "Successfully captured and decoded glasses bill photo: ${targetBitmap?.width}x${targetBitmap?.height}")
                 }
                 .onFailure { err, _ ->
                   Log.w(TAG, "Glasses capturePhoto failed for bill: ${err.description}")
@@ -983,6 +999,8 @@ class CameraViewModel(
           } catch (e: Exception) {
             Log.w(TAG, "Could not capture glasses photo for Gemini Flash bill: ${e.message}")
           }
+        } else {
+          Log.w(TAG, "Glasses stream not ready for bill parsing after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
       }
 
@@ -2044,8 +2062,11 @@ class CameraViewModel(
    */
   fun startStreaming() {
     userStoppedStream = false
-    if (_uiState.value.glassesDisplayScreen != GlassesDisplayScreen.SCAN_QR) {
-      Log.w(TAG, "startStreaming blocked: current screen is ${_uiState.value.glassesDisplayScreen}, not SCAN_QR")
+    val isCameraMode = _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR ||
+        _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT ||
+        _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL
+    if (!isCameraMode) {
+      Log.w(TAG, "startStreaming blocked: current screen is ${_uiState.value.glassesDisplayScreen}")
       return
     }
     if (!_uiState.value.isSessionActive) {
@@ -2113,8 +2134,11 @@ class CameraViewModel(
 
   private fun beginStream() {
     val current = session ?: return
-    if (_uiState.value.glassesDisplayScreen != GlassesDisplayScreen.SCAN_QR) {
-      Log.w(TAG, "beginStream blocked: current screen is ${_uiState.value.glassesDisplayScreen}, not SCAN_QR")
+    val isCameraMode = _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR ||
+        _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT ||
+        _uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL
+    if (!isCameraMode) {
+      Log.w(TAG, "beginStream blocked: current screen is ${_uiState.value.glassesDisplayScreen}")
       return
     }
     if (stream != null) return

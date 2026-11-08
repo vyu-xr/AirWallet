@@ -283,9 +283,10 @@ fun WalletMainScreen(
     }
   }
 
-  // Ensure camera stream is stopped whenever phone navigates away from SCAN screen
+  // Ensure camera stream is stopped whenever phone navigates away from SCAN screen unless in Visual AI mode
   LaunchedEffect(currentScreen) {
-    if (currentScreen != WalletScreen.SCAN) {
+    val isVisualAi = ui.glassesDisplayScreen == GlassesDisplayScreen.SCAN_OBJECT || ui.glassesDisplayScreen == GlassesDisplayScreen.SCAN_BILL
+    if (currentScreen != WalletScreen.SCAN && !isVisualAi) {
       if (ui.isStreaming || ui.streamState != StreamState.STOPPED) {
         cameraViewModel.stopStreaming()
       }
@@ -1014,7 +1015,7 @@ private fun WalletHomeScreen(
             modifier = Modifier
                 .weight(1f)
                 .clickable {
-                  if (ui.isStreaming) {
+                  if (ui.hasSession || isConnected || ui.isSessionActive) {
                     cameraViewModel.onScanObjectClicked(fromGlasses = true)
                   } else {
                     takeObjectPhotoLauncher.launch(null)
@@ -1047,7 +1048,7 @@ private fun WalletHomeScreen(
             modifier = Modifier
                 .weight(1f)
                 .clickable {
-                  if (ui.isStreaming) {
+                  if (ui.hasSession || isConnected || ui.isSessionActive) {
                     cameraViewModel.onScanBillClicked(fromGlasses = true)
                   } else {
                     takeBillPhotoLauncher.launch(null)
@@ -4121,7 +4122,7 @@ fun GeminiResultDialog(
                 modifier = Modifier
                     .weight(1f)
                     .clickable {
-                      if (ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                      if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
                       else rescanObjectPhotoLauncher.launch(null)
                     },
             ) {
@@ -4147,7 +4148,7 @@ fun GeminiResultDialog(
                 modifier = Modifier
                     .weight(1f)
                     .clickable {
-                      if (ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
+                      if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
                       else rescanBillPhotoLauncher.launch(null)
                     },
             ) {
@@ -4322,7 +4323,7 @@ fun GeminiResultDialog(
 
             OutlinedButton(
                 onClick = {
-                  if (ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                  if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
                   else rescanObjectPhotoLauncher.launch(null)
                 },
                 modifier = Modifier.weight(1f).height(40.dp),
@@ -4444,7 +4445,7 @@ fun GeminiResultDialog(
           // Secondary Rescan
           OutlinedButton(
               onClick = {
-                if (ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
+                if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
                 else rescanBillPhotoLauncher.launch(null)
               },
               modifier = Modifier.fillMaxWidth().height(40.dp),
