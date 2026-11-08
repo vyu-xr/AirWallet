@@ -1743,6 +1743,31 @@ private fun WalletScannerScreen(
     }
   }
 
+  val scannerContext = androidx.compose.ui.platform.LocalContext.current
+  val safeLaunchScannerObjectPhoto = {
+    try {
+      if (androidx.core.content.ContextCompat.checkSelfPermission(scannerContext, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        scannerObjectPhotoLauncher.launch(null)
+      } else {
+        Log.w("WalletScannerScreen", "Camera permission not granted for object scanner")
+      }
+    } catch (e: Exception) {
+      Log.e("WalletScannerScreen", "Failed to launch object photo: ${e.message}")
+    }
+  }
+
+  val safeLaunchScannerBillPhoto = {
+    try {
+      if (androidx.core.content.ContextCompat.checkSelfPermission(scannerContext, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        scannerBillPhotoLauncher.launch(null)
+      } else {
+        Log.w("WalletScannerScreen", "Camera permission not granted for bill scanner")
+      }
+    } catch (e: Exception) {
+      Log.e("WalletScannerScreen", "Failed to launch bill photo: ${e.message}")
+    }
+  }
+
   Column(
       modifier = Modifier.fillMaxSize(),
       verticalArrangement = Arrangement.SpaceBetween,
@@ -2131,7 +2156,7 @@ private fun WalletScannerScreen(
                   Log.i("WalletScannerScreen", "Scanning real frame from live CameraX preview: ${liveBmp.getWidth()}x${liveBmp.getHeight()}")
                   cameraViewModel.onScanObjectClicked(bitmap = liveBmp, fromGlasses = false)
                 } else if (!isGlasses) {
-                  scannerObjectPhotoLauncher.launch(null)
+                  safeLaunchScannerObjectPhoto()
                 } else {
                   cameraViewModel.onScanObjectClicked(bitmap = null, fromGlasses = true)
                 }
@@ -2156,7 +2181,7 @@ private fun WalletScannerScreen(
                   Log.i("WalletScannerScreen", "Scanning real bill from live CameraX preview: ${liveBmp.getWidth()}x${liveBmp.getHeight()}")
                   cameraViewModel.onScanBillClicked(bitmap = liveBmp, fromGlasses = false)
                 } else if (!isGlasses) {
-                  scannerBillPhotoLauncher.launch(null)
+                  safeLaunchScannerBillPhoto()
                 } else {
                   cameraViewModel.onScanBillClicked(bitmap = null, fromGlasses = true)
                 }

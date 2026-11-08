@@ -919,6 +919,8 @@ class CameraViewModel(
         }
       }
 
+      // Small pause to allow Wi-Fi Direct socket/interface to yield back default route
+      kotlinx.coroutines.delay(400)
       val result = geminiFlashService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
@@ -1004,6 +1006,8 @@ class CameraViewModel(
         }
       }
 
+      // Small pause to allow Wi-Fi Direct socket/interface to yield back default route
+      kotlinx.coroutines.delay(400)
       val result = geminiFlashService.parseBill(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { bill ->
@@ -3421,14 +3425,13 @@ class CameraViewModel(
                 }
               }
               GlassesDisplayScreen.SCAN_OBJECT -> {
-                text("Gemini Flash • Visual Shop", style = TextStyle.HEADING)
                 val objResult = _uiState.value.geminiObjectResult
                 val isLoading = _uiState.value.isGeminiLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
-                    text("Scanning product...", style = TextStyle.BODY)
-                    text("Google Gemini 2.0 Flash Multimodal AI", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Scanning product...", style = TextStyle.HEADING)
+                    text("Gemini Flash Multimodal AI", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",
@@ -3439,13 +3442,14 @@ class CameraViewModel(
                       }
                   )
                 } else if (objResult != null) {
+                  val priceStr = "%.2f".format(objResult.estimatedPrice)
                   flexBox(direction = Direction.COLUMN, gap = 3, background = FlexBoxBackground.CARD, padding = 8) {
-                    text(objResult.productName, style = TextStyle.BODY)
-                    text("Best Price: $${"%.2f".format(objResult.estimatedPrice)}", style = TextStyle.HEADING)
-                    text("Merchant: ${objResult.merchantName} • PayPal Active", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Product Found", style = TextStyle.HEADING)
+                    text(objResult.productName.take(30), style = TextStyle.BODY)
+                    text("$$priceStr • ${objResult.merchantName.take(20)}", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
-                      label = "1-Tap Pay $${"%.2f".format(objResult.estimatedPrice)} (PayPal)",
+                      label = "1-Tap Pay $$priceStr",
                       style = ButtonStyle.PRIMARY,
                       iconName = IconName.CHECKMARK,
                       onClick = {
@@ -3454,9 +3458,22 @@ class CameraViewModel(
                       }
                   )
                   button(
-                      label = "Rescan Object",
-                      style = ButtonStyle.SECONDARY,
-                      iconName = IconName.META_AI,
+                      label = "Return to Home",
+                      style = ButtonStyle.OUTLINE,
+                      iconName = IconName.ARROW_LEFT,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                      }
+                  )
+                } else {
+                  flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
+                    text("No Product Detected", style = TextStyle.HEADING)
+                    text("Ensure item is centered in frame", style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "Try Again",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.TWO_ARROWS_CLOCKWISE,
                       onClick = {
                         viewModelScope.launch(Dispatchers.Main) { onScanObjectClicked() }
                       }
@@ -3469,26 +3486,16 @@ class CameraViewModel(
                         viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
                       }
                   )
-                } else {
-                  button(
-                      label = "Return to Home",
-                      style = ButtonStyle.PRIMARY,
-                      iconName = IconName.ARROW_LEFT,
-                      onClick = {
-                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
-                      }
-                  )
                 }
               }
               GlassesDisplayScreen.SCAN_BILL -> {
-                text("Gemini Flash • Bill Split", style = TextStyle.HEADING)
                 val billResult = _uiState.value.geminiBillResult
                 val isLoading = _uiState.value.isGeminiLoading
 
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
-                    text("Parsing receipt line items...", style = TextStyle.BODY)
-                    text("Google Gemini 2.0 Flash OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Parsing receipt...", style = TextStyle.HEADING)
+                    text("Gemini Flash OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",
@@ -3499,27 +3506,20 @@ class CameraViewModel(
                       }
                   )
                 } else if (billResult != null) {
+                  val totalStr = "%.2f".format(billResult.grandTotal)
                   flexBox(direction = Direction.COLUMN, gap = 3, background = FlexBoxBackground.CARD, padding = 8) {
-                    text(billResult.merchantName, style = TextStyle.BODY)
-                    text("Total: $${"%.2f".format(billResult.grandTotal)}", style = TextStyle.HEADING)
-                    val itemsSummary = "${billResult.items.size} items • Tax $${"%.2f".format(billResult.taxTotal)} • Tip $${"%.2f".format(billResult.tip)}"
+                    text(billResult.merchantName.take(28), style = TextStyle.HEADING)
+                    text("Total: $$totalStr", style = TextStyle.BODY)
+                    val itemsSummary = "${billResult.items.size} items • Tax $${"%.2f".format(billResult.taxTotal)}"
                     text(itemsSummary, style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
-                      label = "Split with Friends (PayPal)",
+                      label = "Split Bill ($$totalStr)",
                       style = ButtonStyle.PRIMARY,
                       iconName = IconName.SLIDERS_HORIZONTAL,
                       onClick = {
                         Log.i(TAG, "Split with Friends clicked for Gemini Flash bill")
                         viewModelScope.launch(Dispatchers.Main) { executeGeminiBillSplit() }
-                      }
-                  )
-                  button(
-                      label = "Rescan Bill",
-                      style = ButtonStyle.SECONDARY,
-                      iconName = IconName.TWO_ARROWS_CLOCKWISE,
-                      onClick = {
-                        viewModelScope.launch(Dispatchers.Main) { onScanBillClicked() }
                       }
                   )
                   button(
@@ -3531,9 +3531,21 @@ class CameraViewModel(
                       }
                   )
                 } else {
+                  flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
+                    text("No Bill Detected", style = TextStyle.HEADING)
+                    text("Point camera directly at receipt", style = TextStyle.META, color = TextColor.SECONDARY)
+                  }
+                  button(
+                      label = "Try Again",
+                      style = ButtonStyle.PRIMARY,
+                      iconName = IconName.TWO_ARROWS_CLOCKWISE,
+                      onClick = {
+                        viewModelScope.launch(Dispatchers.Main) { onScanBillClicked() }
+                      }
+                  )
                   button(
                       label = "Return to Home",
-                      style = ButtonStyle.PRIMARY,
+                      style = ButtonStyle.OUTLINE,
                       iconName = IconName.ARROW_LEFT,
                       onClick = {
                         viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }

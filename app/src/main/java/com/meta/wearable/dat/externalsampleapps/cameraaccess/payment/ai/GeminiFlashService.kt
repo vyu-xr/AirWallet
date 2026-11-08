@@ -11,6 +11,8 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Base64
 import android.util.Log
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.paypal.PayPalOrderItem
@@ -233,69 +235,108 @@ class GeminiFlashService(private val context: Context) {
   }
 
   /**
-   * Direct native call to Google Gemini Flash API with automatic multi-model failover.
+   * Opens an HttpURLConnection bound explicitly to an active Internet-capable network.
+   * This bypasses any local P2P or Wi-Fi Direct network created by smart glasses that lacks Internet access.
+   */
+  private fun openInternetConnection(url: URL): HttpURLConnection {
+    try {
+      val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+      if (cm != null) {
+        val validatedNet = cm.allNetworks.firstOrNull { net ->
+          val caps = cm.getNetworkCapabilities(net) ?: return@firstOrNull false
+          caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }
+        val internetNet = validatedNet ?: cm.allNetworks.firstOrNull { net ->
+          val caps = cm.getNetworkCapabilities(net) ?: return@firstOrNull false
+          caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } ?: cm.activeNetwork
+
+        if (internetNet != null) {
+          return internetNet.openConnection(url) as HttpURLConnection
+        }
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Failed to resolve internet network, using default openConnection: ${e.message}")
+    }
+    return url.openConnection() as HttpURLConnection
+  }
+
+  /**
+   * Direct native call to Google Gemini Flash API with automatic multi-model failover and retry.
    * Leverages built-in app key so users and judges never need manual setup.
    */
   private fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
-    val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-flash-latest")
+    val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest")
 
-    for (modelName in modelsToTry) {
-      val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$effectiveKey"
-      try {
-        val url = URL(endpointUrl)
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-          requestMethod = "POST"
-          connectTimeout = 12000
-          readTimeout = 18000
-          doOutput = true
-          setRequestProperty("Content-Type", "application/json")
-        }
+    val maxRetries = 3
+    for (attempt in 1..maxRetries) {
+      if (attempt > 1) {
+        val backoff = if (attempt == 2) 800L else 1600L
+        Log.i(TAG, "Retrying Gemini call after ${backoff}ms backoff (attempt $attempt/$maxRetries)...")
+        try {
+          Thread.sleep(backoff)
+        } catch (_: InterruptedException) {}
+      }
 
-        val requestBody = JSONObject().apply {
-          val contentsArray = JSONArray().apply {
-            put(JSONObject().apply {
-              val partsArray = JSONArray().apply {
-                put(JSONObject().apply {
-                  put("text", textPrompt)
-                })
-                put(JSONObject().apply {
-                  val inlineData = JSONObject().apply {
-                    put("mime_type", "image/jpeg")
-                    put("data", base64Image)
-                  }
-                  put("inline_data", inlineData)
-                })
-              }
-              put("parts", partsArray)
+      for (modelName in modelsToTry) {
+        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$effectiveKey"
+        try {
+          val url = URL(endpointUrl)
+          val connection = openInternetConnection(url).apply {
+            requestMethod = "POST"
+            connectTimeout = 12000
+            readTimeout = 20000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+          }
+
+          val requestBody = JSONObject().apply {
+            val contentsArray = JSONArray().apply {
+              put(JSONObject().apply {
+                val partsArray = JSONArray().apply {
+                  put(JSONObject().apply {
+                    put("text", textPrompt)
+                  })
+                  put(JSONObject().apply {
+                    val inlineData = JSONObject().apply {
+                      put("mime_type", "image/jpeg")
+                      put("data", base64Image)
+                    }
+                    put("inline_data", inlineData)
+                  })
+                }
+                put("parts", partsArray)
+              })
+            }
+            put("contents", contentsArray)
+            put("generationConfig", JSONObject().apply {
+              put("response_mime_type", "application/json")
+              put("temperature", 0.2)
             })
           }
-          put("contents", contentsArray)
-          put("generationConfig", JSONObject().apply {
-            put("response_mime_type", "application/json")
-            put("temperature", 0.2)
-          })
-        }
 
-        OutputStreamWriter(connection.outputStream).use { writer ->
-          writer.write(requestBody.toString())
-          writer.flush()
-        }
-
-        val responseCode = connection.responseCode
-        if (responseCode in 200..299) {
-          val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-          val parsedText = extractContentFromGeminiResponse(responseText)
-          if (!parsedText.isNullOrBlank()) {
-            Log.i(TAG, "Gemini ($modelName) successfully returned response")
-            return parsedText
+          OutputStreamWriter(connection.outputStream).use { writer ->
+            writer.write(requestBody.toString())
+            writer.flush()
           }
-        } else {
-          val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-          Log.w(TAG, "Gemini ($modelName) HTTP $responseCode: $errText - trying next model")
+
+          val responseCode = connection.responseCode
+          if (responseCode in 200..299) {
+            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            val parsedText = extractContentFromGeminiResponse(responseText)
+            if (!parsedText.isNullOrBlank()) {
+              Log.i(TAG, "Gemini ($modelName) successfully returned response on attempt $attempt")
+              return parsedText
+            }
+          } else {
+            val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            Log.w(TAG, "Gemini ($modelName) HTTP $responseCode: $errText - trying next model")
+          }
+        } catch (e: Exception) {
+          Log.w(TAG, "Gemini ($modelName) attempt $attempt exception: ${e.message}")
         }
-      } catch (e: Exception) {
-        Log.w(TAG, "Gemini ($modelName) request exception: ${e.message}", e)
       }
     }
     return null
