@@ -658,6 +658,15 @@ private fun WalletHomeScreen(
 ) {
   var selectedTxForReceipt by remember { mutableStateOf<WalletTransaction?>(null) }
   var showApiKeyDialog by remember { mutableStateOf(false) }
+  val context = LocalContext.current
+
+  val homeCameraPermissionLauncher = rememberLauncherForActivityResult(
+      ActivityResultContracts.RequestPermission()
+  ) { isGranted ->
+    if (isGranted) {
+      Log.i("WalletHomeScreen", "Camera permission granted by user")
+    }
+  }
 
   // High-resolution real-world camera photo capture launchers for Visual AI
   val takeObjectPhotoLauncher = rememberLauncherForActivityResult(
@@ -675,6 +684,30 @@ private fun WalletHomeScreen(
     if (capturedBitmap != null) {
       Log.i("WalletHomeScreen", "Bill photo captured: ${capturedBitmap.getWidth()}x${capturedBitmap.getHeight()}")
       cameraViewModel.onScanBillClicked(bitmap = capturedBitmap, fromGlasses = false)
+    }
+  }
+
+  val safeLaunchObjectPhoto = {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+      try {
+        takeObjectPhotoLauncher.launch(null)
+      } catch (e: Exception) {
+        Log.e("WalletHomeScreen", "Cannot launch camera: ${e.message}")
+      }
+    } else {
+      homeCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+  }
+
+  val safeLaunchBillPhoto = {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+      try {
+        takeBillPhotoLauncher.launch(null)
+      } catch (e: Exception) {
+        Log.e("WalletHomeScreen", "Cannot launch camera: ${e.message}")
+      }
+    } else {
+      homeCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
     }
   }
 
@@ -1018,7 +1051,7 @@ private fun WalletHomeScreen(
                   if (ui.hasSession || isConnected || ui.isSessionActive) {
                     cameraViewModel.onScanObjectClicked(fromGlasses = true)
                   } else {
-                    takeObjectPhotoLauncher.launch(null)
+                    safeLaunchObjectPhoto()
                   }
                 },
         ) {
@@ -1051,7 +1084,7 @@ private fun WalletHomeScreen(
                   if (ui.hasSession || isConnected || ui.isSessionActive) {
                     cameraViewModel.onScanBillClicked(fromGlasses = true)
                   } else {
-                    takeBillPhotoLauncher.launch(null)
+                    safeLaunchBillPhoto()
                   }
                 },
         ) {
@@ -4037,6 +4070,38 @@ fun GeminiResultDialog(
     }
   }
 
+  val cameraPermissionLauncher = rememberLauncherForActivityResult(
+      ActivityResultContracts.RequestPermission()
+  ) { isGranted ->
+    if (!isGranted) {
+      Log.w("GeminiDialog", "Camera permission denied by user")
+    }
+  }
+
+  val safeRescanObjectPhoto = {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+      try {
+        rescanObjectPhotoLauncher.launch(null)
+      } catch (e: Exception) {
+        Log.e("GeminiDialog", "Cannot launch camera preview: ${e.message}")
+      }
+    } else {
+      cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+  }
+
+  val safeRescanBillPhoto = {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+      try {
+        rescanBillPhotoLauncher.launch(null)
+      } catch (e: Exception) {
+        Log.e("GeminiDialog", "Cannot launch camera preview: ${e.message}")
+      }
+    } else {
+      cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+  }
+
   Dialog(
       onDismissRequest = onDismiss,
       properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -4123,7 +4188,7 @@ fun GeminiResultDialog(
                     .weight(1f)
                     .clickable {
                       if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
-                      else rescanObjectPhotoLauncher.launch(null)
+                      else safeRescanObjectPhoto()
                     },
             ) {
               Row(
@@ -4149,7 +4214,7 @@ fun GeminiResultDialog(
                     .weight(1f)
                     .clickable {
                       if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
-                      else rescanBillPhotoLauncher.launch(null)
+                      else safeRescanBillPhoto()
                     },
             ) {
               Row(
@@ -4324,7 +4389,7 @@ fun GeminiResultDialog(
             OutlinedButton(
                 onClick = {
                   if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
-                  else rescanObjectPhotoLauncher.launch(null)
+                  else safeRescanObjectPhoto()
                 },
                 modifier = Modifier.weight(1f).height(40.dp),
                 shape = RoundedCornerShape(50),
@@ -4446,7 +4511,7 @@ fun GeminiResultDialog(
           OutlinedButton(
               onClick = {
                 if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
-                else rescanBillPhotoLauncher.launch(null)
+                else safeRescanBillPhoto()
               },
               modifier = Modifier.fillMaxWidth().height(40.dp),
               shape = RoundedCornerShape(50),
