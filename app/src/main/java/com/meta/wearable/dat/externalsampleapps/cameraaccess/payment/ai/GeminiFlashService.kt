@@ -113,49 +113,49 @@ class GeminiFlashService(private val context: Context) {
    * Returns product details, best merchant price, and shopping checkout link.
    */
   suspend fun identifyObject(bitmap: Bitmap?): Result<GeminiObjectResult> = withContext(Dispatchers.IO) {
-    val apiKey = getApiKey()
-    Log.i(TAG, "identifyObject: Starting visual product recognition (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
-
-    if (bitmap != null) {
-      try {
-        val base64Image = bitmapToBase64(bitmap, quality = 82)
-        val prompt = """
-          You are Google Gemini 2.0 Flash multimodal visual assistant for AirWallet smart glasses.
-          Identify the primary physical commercial product in this image.
-          Return a strict, valid JSON object with EXACTLY this structure:
-          {
-            "productName": "Product Name and Model",
-            "brand": "Manufacturer Brand",
-            "category": "Electronics | Fashion | Groceries | Lifestyle",
-            "estimatedPrice": 129.99,
-            "currency": "USD",
-            "shortDescription": "One concise sentence describing the product",
-            "merchantName": "Best Buy or Target or Amazon or Merchant",
-            "shoppingUrl": "https://www.google.com/search?q=product+buy",
-            "paypalSupported": true
-          }
-        """.trimIndent()
-
-        val jsonResponse = callMultimodalApi(apiKey, base64Image, prompt)
-        if (jsonResponse != null) {
-          val parsed = parseObjectJson(jsonResponse)
-          if (parsed != null) {
-            Log.i(TAG, "Gemini Flash successfully identified real object: ${parsed.productName} ($${parsed.estimatedPrice})")
-            return@withContext Result.success(parsed)
-          }
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "Live Gemini Flash API call failed: ${e.message}", e)
-      }
-    } else {
+    if (bitmap == null) {
       Log.w(TAG, "identifyObject: bitmap is null! No image frame provided.")
+      return@withContext Result.failure(Exception("Try again, AI is not available currently"))
     }
 
-    // Smart Fallback / Demo Mode
-    kotlinx.coroutines.delay(1000)
-    val fallback = generateSmartObjectFallback()
-    Log.i(TAG, "Delivered fallback Visual AI object result: ${fallback.productName} ($${fallback.estimatedPrice})")
-    Result.success(fallback)
+    val apiKey = getApiKey()
+    Log.i(TAG, "identifyObject: Starting real visual product recognition (dimensions: ${bitmap.width}x${bitmap.height})")
+
+    try {
+      val base64Image = bitmapToBase64(bitmap, quality = 82)
+      val prompt = """
+        You are Google Gemini 2.0 Flash multimodal visual assistant for AirWallet smart glasses.
+        Identify the primary physical commercial product in this image.
+        If no commercial product or item is identifiable, return:
+        { "error": "not_found" }
+        Otherwise, return a strict, valid JSON object with EXACTLY this structure:
+        {
+          "productName": "Product Name and Model",
+          "brand": "Manufacturer Brand",
+          "category": "Electronics | Fashion | Groceries | Lifestyle",
+          "estimatedPrice": 129.99,
+          "currency": "USD",
+          "shortDescription": "One concise sentence describing the product",
+          "merchantName": "Best Buy or Target or Amazon or Merchant",
+          "shoppingUrl": "https://www.google.com/search?q=product+buy",
+          "paypalSupported": true
+        }
+      """.trimIndent()
+
+      val jsonResponse = callMultimodalApi(apiKey, base64Image, prompt)
+      if (jsonResponse != null) {
+        val parsed = parseObjectJson(jsonResponse)
+        if (parsed != null) {
+          Log.i(TAG, "Gemini Flash successfully identified real object: ${parsed.productName} ($${parsed.estimatedPrice})")
+          return@withContext Result.success(parsed)
+        }
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Live Gemini Flash API call failed: ${e.message}", e)
+    }
+
+    Log.w(TAG, "identifyObject: AI identification failed or item not found. Prompting try again.")
+    Result.failure(Exception("Try again, AI is not available currently"))
   }
 
   /**
@@ -163,50 +163,50 @@ class GeminiFlashService(private val context: Context) {
    * Extracts itemized breakdown, tax, tip, and total, ready for PayPal Invoicing v2.
    */
   suspend fun parseBill(bitmap: Bitmap?): Result<GeminiBillResult> = withContext(Dispatchers.IO) {
-    val apiKey = getApiKey()
-    Log.i(TAG, "parseBill: Starting optical receipt itemization with Gemini Flash (API Key present: ${apiKey.isNotBlank()}, bitmap present: ${bitmap != null}, dimensions: ${bitmap?.width}x${bitmap?.height})")
-
-    if (bitmap != null) {
-      try {
-        val base64Image = bitmapToBase64(bitmap, quality = 85)
-        val prompt = """
-          You are Google Gemini 2.0 Flash optical receipt parser for AirWallet smart glasses.
-          Extract the itemized receipt from this image.
-          Return a strict, valid JSON object with EXACTLY this structure:
-          {
-            "merchantName": "Name of restaurant or merchant",
-            "items": [
-              { "name": "Item 1", "quantity": 1, "unitAmount": 14.50, "tax": 1.20 },
-              { "name": "Item 2", "quantity": 2, "unitAmount": 8.00, "tax": 1.30 }
-            ],
-            "subtotal": 30.50,
-            "taxTotal": 2.50,
-            "tip": 5.00,
-            "grandTotal": 38.00,
-            "suggestedSplitPerPerson": 19.00
-          }
-        """.trimIndent()
-
-        val jsonResponse = callMultimodalApi(apiKey, base64Image, prompt)
-        if (jsonResponse != null) {
-          val parsed = parseBillJson(jsonResponse)
-          if (parsed != null) {
-            Log.i(TAG, "Gemini Flash successfully parsed real bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
-            return@withContext Result.success(parsed)
-          }
-        }
-      } catch (e: Exception) {
-        Log.w(TAG, "Live Gemini Flash bill parsing failed: ${e.message}", e)
-      }
-    } else {
+    if (bitmap == null) {
       Log.w(TAG, "parseBill: bitmap is null! No image frame provided.")
+      return@withContext Result.failure(Exception("Try again, AI is not available currently"))
     }
 
-    // Smart Fallback / Demo Mode
-    kotlinx.coroutines.delay(1000)
-    val fallback = generateSmartBillFallback()
-    Log.i(TAG, "Delivered fallback Visual AI bill result: ${fallback.merchantName} (Total: $${fallback.grandTotal})")
-    Result.success(fallback)
+    val apiKey = getApiKey()
+    Log.i(TAG, "parseBill: Starting real optical receipt itemization with Gemini Flash (dimensions: ${bitmap.width}x${bitmap.height})")
+
+    try {
+      val base64Image = bitmapToBase64(bitmap, quality = 85)
+      val prompt = """
+        You are Google Gemini 2.0 Flash optical receipt parser for AirWallet smart glasses.
+        Extract the itemized receipt from this image.
+        If no receipt or bill is identifiable, return:
+        { "error": "not_found" }
+        Otherwise, return a strict, valid JSON object with EXACTLY this structure:
+        {
+          "merchantName": "Name of restaurant or merchant",
+          "items": [
+            { "name": "Item 1", "quantity": 1, "unitAmount": 14.50, "tax": 1.20 },
+            { "name": "Item 2", "quantity": 2, "unitAmount": 8.00, "tax": 1.30 }
+          ],
+          "subtotal": 30.50,
+          "taxTotal": 2.50,
+          "tip": 5.00,
+          "grandTotal": 38.00,
+          "suggestedSplitPerPerson": 19.00
+        }
+      """.trimIndent()
+
+      val jsonResponse = callMultimodalApi(apiKey, base64Image, prompt)
+      if (jsonResponse != null) {
+        val parsed = parseBillJson(jsonResponse)
+        if (parsed != null) {
+          Log.i(TAG, "Gemini Flash successfully parsed real bill: ${parsed.merchantName} (Total: $${parsed.grandTotal})")
+          return@withContext Result.success(parsed)
+        }
+      }
+    } catch (e: Exception) {
+      Log.w(TAG, "Live Gemini Flash bill parsing failed: ${e.message}", e)
+    }
+
+    Log.w(TAG, "parseBill: AI receipt parsing failed or bill not found. Prompting try again.")
+    Result.failure(Exception("Try again, AI is not available currently"))
   }
 
   /**
@@ -364,8 +364,17 @@ class GeminiFlashService(private val context: Context) {
     return try {
       val cleaned = cleanJsonString(rawText)
       val json = JSONObject(cleaned)
+      if (json.has("error") || json.optString("error").isNotBlank()) {
+        Log.w(TAG, "parseObjectJson: Model returned error: ${json.optString("error")}")
+        return null
+      }
+      val name = json.optString("productName", "")
+      if (name.isBlank() || name.equals("Unknown Item", ignoreCase = true)) {
+        Log.w(TAG, "parseObjectJson: Model returned empty or unknown product name")
+        return null
+      }
       GeminiObjectResult(
-          productName = json.optString("productName", "Commercial Product"),
+          productName = name,
           brand = json.optString("brand", "Verified Merchant"),
           category = json.optString("category", "Retail"),
           estimatedPrice = json.optDouble("estimatedPrice", 29.99),
@@ -385,7 +394,15 @@ class GeminiFlashService(private val context: Context) {
     return try {
       val cleaned = cleanJsonString(rawText)
       val json = JSONObject(cleaned)
-      val merchantName = json.optString("merchantName", "Restaurant Bill")
+      if (json.has("error") || json.optString("error").isNotBlank()) {
+        Log.w(TAG, "parseBillJson: Model returned error: ${json.optString("error")}")
+        return null
+      }
+      val merchantName = json.optString("merchantName", "")
+      if (merchantName.isBlank() || merchantName.equals("Unknown Merchant", ignoreCase = true)) {
+        Log.w(TAG, "parseBillJson: Model returned empty or unknown merchant")
+        return null
+      }
       val itemsArray = json.optJSONArray("items") ?: JSONArray()
       val items = mutableListOf<PayPalOrderItem>()
       for (i in 0 until itemsArray.length()) {
@@ -429,67 +446,5 @@ class GeminiFlashService(private val context: Context) {
     } else {
       trimmed
     }
-  }
-
-  // Pre-configured commercial fallback items for reliable live demonstrations
-  private fun generateSmartObjectFallback(): GeminiObjectResult {
-    val items = listOf(
-        GeminiObjectResult(
-            productName = "Sony WH-1000XM5 Wireless Headphones",
-            brand = "Sony",
-            category = "Electronics",
-            estimatedPrice = 348.00,
-            currency = "USD",
-            shortDescription = "Industry-leading noise canceling wireless over-ear headphones with 2 processors.",
-            merchantName = "Best Buy",
-            shoppingUrl = "https://www.bestbuy.com/site/sony-wh-1000xm5/6505727.p",
-            paypalSupported = true,
-        ),
-        GeminiObjectResult(
-            productName = "Aer Travel Pack 3 (X-Pac)",
-            brand = "Aer",
-            category = "Travel & Lifestyle",
-            estimatedPrice = 279.00,
-            currency = "USD",
-            shortDescription = "Durable carry-on backpack engineered for smart travel and everyday tech carry.",
-            merchantName = "Aer Official Store",
-            shoppingUrl = "https://aersf.com/products/travel-pack-3-x-pac",
-            paypalSupported = true,
-        ),
-        GeminiObjectResult(
-            productName = "Ember Temperature Control Smart Mug 2",
-            brand = "Ember",
-            category = "Home & Kitchen",
-            estimatedPrice = 149.95,
-            currency = "USD",
-            shortDescription = "14 oz app-controlled heated coffee mug that keeps beverages at your precise temperature.",
-            merchantName = "Target",
-            shoppingUrl = "https://www.target.com/p/ember-mug-2-14oz/-/A-79848523",
-            paypalSupported = true,
-        )
-    )
-    return items.random()
-  }
-
-  private fun generateSmartBillFallback(): GeminiBillResult {
-    val sampleItems = listOf(
-        PayPalOrderItem(name = "Truffle Mushroom Pizza", quantity = 1, unitAmount = 24.00, tax = 2.10),
-        PayPalOrderItem(name = "Burrata Caprese Salad", quantity = 1, unitAmount = 16.50, tax = 1.45),
-        PayPalOrderItem(name = "Sparkling San Pellegrino (750ml)", quantity = 2, unitAmount = 7.00, tax = 0.60),
-        PayPalOrderItem(name = "Tiramisu Classico", quantity = 1, unitAmount = 11.00, tax = 0.95),
-    )
-    val subtotal = sampleItems.sumOf { it.unitAmount * it.quantity }
-    val taxTotal = sampleItems.sumOf { it.tax }
-    val tip = 13.00
-    val grandTotal = subtotal + taxTotal + tip
-    return GeminiBillResult(
-        merchantName = "Osteria Morini Italian Bistro",
-        items = sampleItems,
-        subtotal = subtotal,
-        taxTotal = taxTotal,
-        tip = tip,
-        grandTotal = grandTotal,
-        suggestedSplitPerPerson = (grandTotal / 2.0),
-    )
   }
 }

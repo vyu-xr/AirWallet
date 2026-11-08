@@ -4544,6 +4544,55 @@ fun GeminiResultDialog(
           ) {
             Text("Scan Another Bill", color = AppColor.TextPrimary, fontSize = 11.sp)
           }
+        } else {
+          // Failure / AI Unavailable State
+          Column(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(vertical = 24.dp),
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(12.dp),
+          ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFF2A2A2A),
+                modifier = Modifier.size(52.dp),
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = AppColor.Coral, modifier = Modifier.size(26.dp))
+              }
+            }
+            Text(
+                text = ui.geminiErrorMessage ?: "Try again, AI is not available currently",
+                color = AppColor.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Ensure the item or paper receipt is clearly in view and try scanning again.",
+                color = AppColor.TextSecondary,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Button(
+                onClick = {
+                  if (activeTab == "object") {
+                    if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanObjectClicked(fromGlasses = true)
+                    else safeRescanObjectPhoto()
+                  } else {
+                    if (ui.hasSession || ui.isSessionActive || ui.isStreaming) cameraViewModel.onScanBillClicked(fromGlasses = true)
+                    else safeRescanBillPhoto()
+                  }
+                },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "object") AppColor.Coral else AppColor.Lime),
+            ) {
+              Text("Try Again", color = if (activeTab == "object") Color.White else AppColor.TextInverted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+          }
         }
       }
     }

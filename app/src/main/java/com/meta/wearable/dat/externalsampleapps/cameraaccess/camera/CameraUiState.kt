@@ -102,6 +102,7 @@ data class CameraUiState(
     val geminiLoadingPrompt: String = "",
     val showGeminiDialog: Boolean = false,
     val geminiActiveTab: String = "object",
+    val geminiErrorMessage: String? = null,
 ) {
   val isDisplayActive: Boolean
     get() = displayState == com.meta.wearable.dat.display.types.DisplayState.STARTED

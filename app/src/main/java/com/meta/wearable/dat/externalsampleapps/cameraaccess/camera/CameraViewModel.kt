@@ -861,6 +861,7 @@ class CameraViewModel(
    */
   fun onScanObjectClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
     Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
+    userStoppedStream = false
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
@@ -869,6 +870,7 @@ class CameraViewModel(
           showGeminiDialog = true,
           geminiActiveTab = "object",
           geminiObjectResult = null,
+          geminiErrorMessage = null,
       )
     }
     renderGlassesScreen()
@@ -917,10 +919,14 @@ class CameraViewModel(
         } else {
           Log.w(TAG, "Glasses stream not ready after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
+
+        // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
+        withContext(Dispatchers.Main) {
+          stopStreaming()
+        }
+        kotlinx.coroutines.delay(500)
       }
 
-      // Small pause to allow Wi-Fi Direct socket/interface to yield back default route
-      kotlinx.coroutines.delay(400)
       val result = geminiFlashService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
@@ -929,14 +935,22 @@ class CameraViewModel(
             it.copy(
                 isGeminiLoading = false,
                 geminiObjectResult = obj,
+                geminiErrorMessage = null,
             )
           }
           renderGlassesScreen()
           voicePrompter.speak("Found ${obj.productName} for $${obj.estimatedPrice.toInt()} dollars at ${obj.merchantName}. Tap to buy with PayPal.")
         }.onFailure { err ->
           Log.e(TAG, "Gemini Flash object identification error: ${err.message}")
-          _uiState.update { it.copy(isGeminiLoading = false) }
+          _uiState.update {
+            it.copy(
+                isGeminiLoading = false,
+                geminiObjectResult = null,
+                geminiErrorMessage = "Try again, AI is not available currently",
+            )
+          }
           renderGlassesScreen()
+          voicePrompter.speak("Try again, AI is not available currently.")
         }
       }
     }
@@ -948,6 +962,7 @@ class CameraViewModel(
    */
   fun onScanBillClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
     Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
+    userStoppedStream = false
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
@@ -956,6 +971,7 @@ class CameraViewModel(
           showGeminiDialog = true,
           geminiActiveTab = "bill",
           geminiBillResult = null,
+          geminiErrorMessage = null,
       )
     }
     renderGlassesScreen()
@@ -1004,10 +1020,14 @@ class CameraViewModel(
         } else {
           Log.w(TAG, "Glasses stream not ready for bill parsing after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
+
+        // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
+        withContext(Dispatchers.Main) {
+          stopStreaming()
+        }
+        kotlinx.coroutines.delay(500)
       }
 
-      // Small pause to allow Wi-Fi Direct socket/interface to yield back default route
-      kotlinx.coroutines.delay(400)
       val result = geminiFlashService.parseBill(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { bill ->
@@ -1016,14 +1036,22 @@ class CameraViewModel(
             it.copy(
                 isGeminiLoading = false,
                 geminiBillResult = bill,
+                geminiErrorMessage = null,
             )
           }
           renderGlassesScreen()
           voicePrompter.speak("Parsed bill from ${bill.merchantName}. Total is $${bill.grandTotal.toInt()} dollars. Tap to split with friends.")
         }.onFailure { err ->
           Log.e(TAG, "Gemini Flash bill parsing error: ${err.message}")
-          _uiState.update { it.copy(isGeminiLoading = false) }
+          _uiState.update {
+            it.copy(
+                isGeminiLoading = false,
+                geminiBillResult = null,
+                geminiErrorMessage = "Try again, AI is not available currently",
+            )
+          }
           renderGlassesScreen()
+          voicePrompter.speak("Try again, AI is not available currently.")
         }
       }
     }
@@ -2213,8 +2241,12 @@ class CameraViewModel(
         if (!isTerminal) {
           hasBeenActive = true
           if (state == StreamState.STREAMING) {
-            Log.i(TAG, "StreamState is STREAMING - starting QR scanning loop")
-            startQrScanningLoop()
+            if (_uiState.value.glassesDisplayScreen == GlassesDisplayScreen.SCAN_QR) {
+              Log.i(TAG, "StreamState is STREAMING - starting QR scanning loop")
+              startQrScanningLoop()
+            } else {
+              Log.i(TAG, "StreamState is STREAMING for photo capture (screen: ${_uiState.value.glassesDisplayScreen})")
+            }
           }
         } else if (hasBeenActive) {
           hasBeenActive = false
@@ -3467,8 +3499,8 @@ class CameraViewModel(
                   )
                 } else {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
-                    text("No Product Detected", style = TextStyle.HEADING)
-                    text("Ensure item is centered in frame", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("AI Unavailable", style = TextStyle.HEADING)
+                    text("Try again, AI is not available currently", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Try Again",
@@ -3532,8 +3564,8 @@ class CameraViewModel(
                   )
                 } else {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
-                    text("No Bill Detected", style = TextStyle.HEADING)
-                    text("Point camera directly at receipt", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("AI Unavailable", style = TextStyle.HEADING)
+                    text("Try again, AI is not available currently", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Try Again",
