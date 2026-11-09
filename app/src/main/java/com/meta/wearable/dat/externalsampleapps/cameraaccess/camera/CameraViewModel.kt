@@ -920,12 +920,12 @@ class CameraViewModel(
     geminiScanJob = viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
+        if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream && _uiState.value.isSessionActive) {
+          withContext(Dispatchers.Main) { startStreaming() }
+        }
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35 && !userStoppedStream) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 30 && !userStoppedStream) {
           kotlinx.coroutines.currentCoroutineContext().ensureActive()
-          if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
-            withContext(Dispatchers.Main) { startStreaming() }
-          }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
@@ -962,6 +962,22 @@ class CameraViewModel(
       }
 
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
+      if (targetBitmap == null) {
+        Log.w(TAG, "Cannot run Gemini Flash: No camera frame captured")
+        withContext(Dispatchers.Main) {
+          _uiState.update {
+            it.copy(
+                isGeminiLoading = false,
+                geminiObjectResult = null,
+                geminiErrorMessage = "Try again, camera was not ready",
+            )
+          }
+          renderGlassesScreen()
+          voicePrompter.speak("Try again, camera was not ready.")
+        }
+        return@launch
+      }
+
       val result = geminiFlashService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
@@ -1030,12 +1046,12 @@ class CameraViewModel(
     geminiScanJob = viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
+        if (!_uiState.value.isStreaming && !_uiState.value.isStartingStream && _uiState.value.isSessionActive) {
+          withContext(Dispatchers.Main) { startStreaming() }
+        }
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35 && !userStoppedStream) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 30 && !userStoppedStream) {
           kotlinx.coroutines.currentCoroutineContext().ensureActive()
-          if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
-            withContext(Dispatchers.Main) { startStreaming() }
-          }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
@@ -1072,6 +1088,22 @@ class CameraViewModel(
       }
 
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
+      if (targetBitmap == null) {
+        Log.w(TAG, "Cannot run Gemini Flash: No bill camera frame captured")
+        withContext(Dispatchers.Main) {
+          _uiState.update {
+            it.copy(
+                isGeminiLoading = false,
+                geminiBillResult = null,
+                geminiErrorMessage = "Try again, camera was not ready",
+            )
+          }
+          renderGlassesScreen()
+          voicePrompter.speak("Try again, camera was not ready.")
+        }
+        return@launch
+      }
+
       val result = geminiFlashService.parseBill(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { bill ->

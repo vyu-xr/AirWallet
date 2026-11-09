@@ -157,19 +157,6 @@ class MainActivity : ComponentActivity() {
 
     ensureSdkInitialized()
 
-    // Request battery optimization exemption for uninterrupted background AI requests via glasses
-    try {
-      val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-      if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
-        val batteryIntent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-          data = android.net.Uri.parse("package:$packageName")
-        }
-        startActivity(batteryIntent)
-      }
-    } catch (e: Throwable) {
-      Log.w("MainActivity", "Battery optimization prompt skipped: ${e.message}")
-    }
-
     // Pre-warm ML Kit QR neural engine into GPU/NNAPI cache for instant 0ms cold starts
     com.meta.wearable.dat.externalsampleapps.cameraaccess.camera.FastQrScanner.prewarm()
 

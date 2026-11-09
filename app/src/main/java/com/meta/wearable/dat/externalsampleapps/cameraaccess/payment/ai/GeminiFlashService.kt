@@ -11,21 +11,27 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.ai
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Base64
 import android.util.Log
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.paypal.PayPalOrderItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.Dns
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
+import java.net.InetAddress
+import java.net.UnknownHostException
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Result data class for visual product scanning via Google Gemini 2.0 Flash.
@@ -236,64 +242,72 @@ class GeminiFlashService(private val context: Context) {
     return callGeminiApi(effectiveKey, base64Image, textPrompt)
   }
 
-  /**
-   * Opens an HttpURLConnection using the system's active Internet route.
-   * Filters out restricted carrier interfaces (such as IMS/VoLTE) to ensure reliable DNS resolution.
-   */
-  private fun openInternetConnection(url: URL): HttpURLConnection {
-    try {
-      val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-      if (cm != null) {
-        val activeNet = cm.activeNetwork
-        if (activeNet != null) {
-          val caps = cm.getNetworkCapabilities(activeNet)
-          if (caps != null &&
-              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
-              !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS)) {
-            return (activeNet.openConnection(url) as HttpURLConnection).apply {
-              setRequestProperty("Connection", "keep-alive")
-              setRequestProperty("Accept", "application/json")
-            }
-          }
-        }
+  private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-        val validatedNet = cm.allNetworks.firstOrNull { net ->
-          val caps = cm.getNetworkCapabilities(net) ?: return@firstOrNull false
-          caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
-              !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS) &&
-              (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
-        }
-        if (validatedNet != null) {
-          return (validatedNet.openConnection(url) as HttpURLConnection).apply {
-            setRequestProperty("Connection", "keep-alive")
-            setRequestProperty("Accept", "application/json")
+  private val okHttpClient: OkHttpClient by lazy {
+    OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .writeTimeout(8, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .dns(object : Dns {
+          override fun lookup(hostname: String): List<InetAddress> {
+            try {
+              val list = Dns.SYSTEM.lookup(hostname)
+              if (list.isNotEmpty()) return list
+            } catch (e: Exception) {
+              Log.w(TAG, "System DNS lookup failed for $hostname: ${e.message}")
+            }
+            if (hostname.contains("googleapis.com")) {
+              Log.i(TAG, "Using direct Google Anycast IP fallback for $hostname")
+              return listOf(
+                  InetAddress.getByAddress(hostname, byteArrayOf(172.toByte(), 217.toByte(), 115.toByte(), 4.toByte())),
+                  InetAddress.getByAddress(hostname, byteArrayOf(142.toByte(), 250.toByte(), 193.toByte(), 138.toByte())),
+                  InetAddress.getByAddress(hostname, byteArrayOf(142.toByte(), 250.toByte(), 193.toByte(), 10.toByte()))
+              )
+            }
+            throw UnknownHostException("Unable to resolve $hostname")
           }
-        }
-      }
-    } catch (e: Exception) {
-      Log.w(TAG, "Network-specific openConnection failed, using default: ${e.message}")
-    }
-    return (url.openConnection() as HttpURLConnection).apply {
-      setRequestProperty("Connection", "keep-alive")
-      setRequestProperty("Accept", "application/json")
-    }
+        })
+        .build()
   }
 
   /**
-   * Direct native call to Google Gemini Flash API with automatic multi-model failover, DNS fallback, and retry.
-   * Responsive timeouts and cooperative coroutine cancellation so user can cancel instantly.
+   * Direct native call to Google Gemini Flash API via OkHttp with Anycast DNS fallback and cooperative cancellation.
    */
   private suspend fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
     val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-flash-latest")
 
+    val requestJson = JSONObject().apply {
+      val contentsArray = JSONArray().apply {
+        put(JSONObject().apply {
+          val partsArray = JSONArray().apply {
+            put(JSONObject().apply { put("text", textPrompt) })
+            put(JSONObject().apply {
+              put("inline_data", JSONObject().apply {
+                put("mime_type", "image/jpeg")
+                put("data", base64Image)
+              })
+            })
+          }
+          put("parts", partsArray)
+        })
+      }
+      put("contents", contentsArray)
+      put("generationConfig", JSONObject().apply {
+        put("response_mime_type", "application/json")
+        put("temperature", 0.2)
+      })
+    }.toString()
+
+    val body = requestJson.toRequestBody(jsonMediaType)
+
     val maxRetries = 2
     for (attempt in 1..maxRetries) {
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
       if (attempt > 1) {
-        val backoff = 500L
+        val backoff = 400L
         Log.i(TAG, "Retrying Gemini call after ${backoff}ms backoff (attempt $attempt/$maxRetries)...")
         kotlinx.coroutines.delay(backoff)
       }
@@ -301,85 +315,48 @@ class GeminiFlashService(private val context: Context) {
       for (modelName in modelsToTry) {
         kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$effectiveKey"
-        var conn: HttpURLConnection? = null
+        var call: okhttp3.Call? = null
         try {
-          val url = URL(endpointUrl)
-          conn = openInternetConnection(url).apply {
-            requestMethod = "POST"
-            connectTimeout = 5000
-            readTimeout = 8000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Accept", "application/json")
-          }
+          val request = Request.Builder()
+              .url(endpointUrl)
+              .post(body)
+              .addHeader("Accept", "application/json")
+              .build()
 
-          val requestBody = JSONObject().apply {
-            val contentsArray = JSONArray().apply {
-              put(JSONObject().apply {
-                val partsArray = JSONArray().apply {
-                  put(JSONObject().apply {
-                    put("text", textPrompt)
-                  })
-                  put(JSONObject().apply {
-                    val inlineData = JSONObject().apply {
-                      put("mime_type", "image/jpeg")
-                      put("data", base64Image)
-                    }
-                    put("inline_data", inlineData)
-                  })
+          call = okHttpClient.newCall(request)
+
+          val responseText = suspendCancellableCoroutine<String> { continuation ->
+            continuation.invokeOnCancellation {
+              call.cancel()
+            }
+            try {
+              val response = call.execute()
+              response.use { res ->
+                val responseBodyStr = res.body?.string() ?: ""
+                if (res.isSuccessful) {
+                  continuation.resume(responseBodyStr)
+                } else {
+                  continuation.resumeWithException(java.io.IOException("HTTP ${res.code}: $responseBodyStr"))
                 }
-                put("parts", partsArray)
-              })
-            }
-            put("contents", contentsArray)
-            put("generationConfig", JSONObject().apply {
-              put("response_mime_type", "application/json")
-              put("temperature", 0.2)
-            })
-          }
-
-          try {
-            OutputStreamWriter(conn.outputStream).use { writer ->
-              writer.write(requestBody.toString())
-              writer.flush()
-            }
-          } catch (dnsEx: java.net.UnknownHostException) {
-            Log.w(TAG, "DNS resolution failed on bound socket, retrying via raw default openConnection: ${dnsEx.message}")
-            conn.disconnect()
-            conn = (url.openConnection() as HttpURLConnection).apply {
-              requestMethod = "POST"
-              connectTimeout = 5000
-              readTimeout = 8000
-              doOutput = true
-              setRequestProperty("Content-Type", "application/json")
-              setRequestProperty("Accept", "application/json")
-            }
-            OutputStreamWriter(conn.outputStream).use { writer ->
-              writer.write(requestBody.toString())
-              writer.flush()
+              }
+            } catch (e: Exception) {
+              if (!continuation.isCancelled) {
+                continuation.resumeWithException(e)
+              }
             }
           }
 
-          val responseCode = conn.responseCode
-          if (responseCode in 200..299) {
-            val responseText = conn.inputStream.bufferedReader().use { it.readText() }
-            val parsedText = extractContentFromGeminiResponse(responseText)
-            if (!parsedText.isNullOrBlank()) {
-              Log.i(TAG, "Gemini ($modelName) successfully returned response on attempt $attempt")
-              return parsedText
-            }
-          } else {
-            val errText = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
-            Log.w(TAG, "Gemini ($modelName) HTTP $responseCode: $errText - trying next model")
+          val parsedText = extractContentFromGeminiResponse(responseText)
+          if (!parsedText.isNullOrBlank()) {
+            Log.i(TAG, "Gemini ($modelName) successfully returned response on attempt $attempt")
+            return parsedText
           }
         } catch (e: kotlinx.coroutines.CancellationException) {
           Log.i(TAG, "Gemini ($modelName) call cancelled by user")
-          conn?.disconnect()
+          call?.cancel()
           throw e
         } catch (e: Exception) {
-          Log.w(TAG, "Gemini ($modelName) attempt $attempt exception: ${e.message}")
-        } finally {
-          conn?.disconnect()
+          Log.w(TAG, "Gemini ($modelName) attempt $attempt failed: ${e.message}")
         }
       }
     }

@@ -88,6 +88,7 @@ dependencies {
   implementation(libs.mwdat.speech)
   implementation(libs.mwdat.mockdevice)
   implementation("com.google.zxing:core:3.5.3")
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
   // CameraX + ML Kit Barcode Scanning (sub-50ms QR engine)
   val cameraxVersion = "1.4.0"
