@@ -891,7 +891,7 @@ class CameraViewModel(
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
-          geminiLoadingPrompt = "Analyzing product with Google Gemini 2.0 Flash...",
+          geminiLoadingPrompt = "Analyzing product in view...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_OBJECT,
           showGeminiDialog = true,
           geminiActiveTab = "object",
@@ -900,7 +900,7 @@ class CameraViewModel(
       )
     }
     renderGlassesScreen()
-    voicePrompter.speak("Looking up product with Gemini Flash.")
+    voicePrompter.speak("Looking up product.")
 
     if (fromGlasses && bitmap == null) {
       if (!_uiState.value.isSessionActive) {
@@ -1006,7 +1006,7 @@ class CameraViewModel(
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
-          geminiLoadingPrompt = "Parsing paper bill with Google Gemini 2.0 Flash...",
+          geminiLoadingPrompt = "Parsing paper receipt...",
           glassesDisplayScreen = GlassesDisplayScreen.SCAN_BILL,
           showGeminiDialog = true,
           geminiActiveTab = "bill",
@@ -1015,7 +1015,7 @@ class CameraViewModel(
       )
     }
     renderGlassesScreen()
-    voicePrompter.speak("Scanning bill with Gemini Flash.")
+    voicePrompter.speak("Scanning bill.")
 
     if (fromGlasses && bitmap == null) {
       if (!_uiState.value.isSessionActive) {
@@ -1119,7 +1119,7 @@ class CameraViewModel(
     viewModelScope.launch(Dispatchers.Main) {
       val amount = objResult.estimatedPrice
       val payee = objResult.merchantName
-      val note = "Purchased ${objResult.productName} via Gemini Flash"
+      val note = "Purchased ${objResult.productName} via Visual AI"
 
       val result = payPalPaymentService.executePayment(
           payee = payee,
@@ -3041,7 +3041,7 @@ class CameraViewModel(
                     }
                 )
                 button(
-                    label = "Scan Object (Gemini Flash)",
+                    label = "Scan Product",
                     style = ButtonStyle.SECONDARY,
                     iconName = IconName.META_AI,
                     onClick = {
@@ -3050,7 +3050,7 @@ class CameraViewModel(
                     }
                 )
                 button(
-                    label = "Scan Bill (Gemini Flash)",
+                    label = "Scan Paper Bill",
                     style = ButtonStyle.SECONDARY,
                     iconName = IconName.SLIDERS_HORIZONTAL,
                     onClick = {
@@ -3540,7 +3540,7 @@ class CameraViewModel(
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
                     text("Scanning product...", style = TextStyle.HEADING)
-                    text("Gemini Flash Multimodal AI", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Multimodal Visual AI", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",
@@ -3604,7 +3604,7 @@ class CameraViewModel(
                 if (isLoading) {
                   flexBox(direction = Direction.COLUMN, gap = 4, background = FlexBoxBackground.CARD, padding = 10) {
                     text("Parsing receipt...", style = TextStyle.HEADING)
-                    text("Gemini Flash OCR Engine", style = TextStyle.META, color = TextColor.SECONDARY)
+                    text("Optical Receipt Scanner", style = TextStyle.META, color = TextColor.SECONDARY)
                   }
                   button(
                       label = "Cancel",

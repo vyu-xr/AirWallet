@@ -791,7 +791,7 @@ private fun WalletHomeScreen(
                 modifier = Modifier.size(12.dp)
             )
             Text(
-                text = "Gemini Live",
+                text = "AI Visual Search",
                 color = AppColor.Lime,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
@@ -1069,7 +1069,7 @@ private fun WalletHomeScreen(
             )
             Column {
               Text("Scan Object", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              Text("Gemini Flash • Visual Shop", color = AppColor.Coral, fontSize = 9.sp)
+              Text("Visual AI • Smart Shop", color = AppColor.Coral, fontSize = 9.sp)
             }
           }
         }
@@ -1102,7 +1102,7 @@ private fun WalletHomeScreen(
             )
             Column {
               Text("Scan Bill", color = AppColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              Text("Gemini Flash • OCR Split", color = AppColor.Lime, fontSize = 9.sp)
+              Text("Optical OCR • Split Bill", color = AppColor.Lime, fontSize = 9.sp)
             }
           }
         }
@@ -4182,7 +4182,7 @@ fun GeminiResultDialog(
             }
             Column {
               Text(
-                  text = "Google Gemini 2.0 Flash",
+                  text = "Visual AI Product Search",
                   fontSize = 15.sp,
                   fontWeight = FontWeight.Bold,
                   color = AppColor.TextPrimary,
@@ -4285,7 +4285,7 @@ fun GeminiResultDialog(
                 modifier = Modifier.size(42.dp),
             )
             Text(
-                text = ui.geminiLoadingPrompt.ifBlank { "Processing frame with Google Gemini 2.0 Flash..." },
+                text = ui.geminiLoadingPrompt.ifBlank { "Analyzing camera frame..." },
                 color = AppColor.TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -4650,13 +4650,13 @@ fun GeminiApiKeyDialog(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Icon(Icons.Default.Key, contentDescription = null, tint = AppColor.Coral, modifier = Modifier.size(20.dp))
-          Text("Google Gemini 2.0 Flash API Key", color = AppColor.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+          Text("Visual AI API Key", color = AppColor.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
       },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-              text = "Status: Pre-configured & Active (Google Gemini Flash). The API key is securely embedded app-side so neither you nor judges need to enter credentials or select services.",
+              text = "Status: Pre-configured & Active (Embedded Visual AI). The API key is securely embedded app-side so neither you nor judges need to enter credentials or select services.",
               color = AppColor.Lime,
               fontSize = 12.sp,
               lineHeight = 16.sp,
