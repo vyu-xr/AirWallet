@@ -1593,7 +1593,8 @@ private fun WalletStatisticsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-              Text("🎤 Speak Question", color = AppColor.Sky, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              Icon(Icons.Default.Mic, contentDescription = null, tint = AppColor.Sky, modifier = Modifier.size(14.dp))
+              Text("Speak Question", color = AppColor.Sky, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
           }
         }
@@ -1687,7 +1688,7 @@ private fun WalletStatisticsScreen(
                   fontSize = 9.sp
               )
               Text(
-                  text = "🔊 Read Aloud",
+                  text = "Read Aloud",
                   color = AppColor.Sky,
                   fontSize = 10.sp,
                   fontWeight = FontWeight.SemiBold,
@@ -2862,7 +2863,7 @@ private fun WalletContactsScreen(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(6.dp),
           ) {
-            Text("✉️", fontSize = 14.sp)
+            Icon(Icons.Default.Send, contentDescription = null, tint = AppColor.TextInverted, modifier = Modifier.size(16.dp))
             Text(
                 text = if (enteredAmount > 0) "Request $${"%.2f".format(enteredAmount)} from ${selectedContact.name}" else "Enter Amount to Request",
                 color = AppColor.TextInverted,
@@ -3277,7 +3278,7 @@ private fun PayPalSmartReceiptDialog(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Text("💳", fontSize = 14.sp)
+              Icon(Icons.Default.Receipt, contentDescription = null, tint = AppColor.Sky, modifier = Modifier.size(16.dp))
               Column {
                 Text(
                     text = if (tx.fundingSource.isNotBlank()) tx.fundingSource else "PayPal Vault Pre-Authorized",
@@ -3412,7 +3413,7 @@ private fun PayPalBillSplitDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-              Text("✅", fontSize = 28.sp)
+              Icon(Icons.Default.Check, contentDescription = null, tint = AppColor.Lime, modifier = Modifier.size(36.dp))
               Text("Invoices Dispatched!", color = AppColor.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
               Text(
                   text = "Total $${"%.2f".format(res.billTotal)} split between ${res.friendsInvolved.size + 1} people",
@@ -3545,7 +3546,7 @@ private fun PayPalBillSplitDialog(
                     modifier = Modifier.clickable { showKeypad = !showKeypad }
                 ) {
                   Text(
-                      text = if (showKeypad) "▲ Close Keypad" else "⌨ Tap to Type Amount (Keypad)",
+                      text = if (showKeypad) "Close Keypad" else "Tap to Type Amount (Keypad)",
                       color = if (showKeypad) AppColor.Sky else AppColor.TextSecondary,
                       fontSize = 10.sp,
                       fontWeight = FontWeight.SemiBold,
@@ -4043,7 +4044,7 @@ fun VoiceQaListeningModal(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                  Text("💡", fontSize = 12.sp)
+                  Icon(Icons.Default.Info, contentDescription = null, tint = AppColor.Sky, modifier = Modifier.size(14.dp))
                   Text(
                       text = prompt,
                       color = AppColor.TextPrimary,
@@ -4287,6 +4288,19 @@ fun GeminiResultDialog(
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
             )
+            OutlinedButton(
+                onClick = { cameraViewModel.cancelGeminiScan() },
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color(0xFF555555)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = AppColor.TextSecondary
+                ),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+              Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Cancel Scan", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
           }
         } else if (activeTab == "object" && objResult != null) {
           // Object Result Card

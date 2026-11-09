@@ -17,6 +17,7 @@ import android.util.Base64
 import android.util.Log
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.paypal.PayPalOrderItem
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -229,7 +230,7 @@ class GeminiFlashService(private val context: Context) {
   /**
    * Executes a multimodal request via Google Gemini Flash.
    */
-  private fun callMultimodalApi(apiKey: String, base64Image: String, textPrompt: String): String? {
+  private suspend fun callMultimodalApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
     return callGeminiApi(effectiveKey, base64Image, textPrompt)
   }
@@ -264,30 +265,31 @@ class GeminiFlashService(private val context: Context) {
 
   /**
    * Direct native call to Google Gemini Flash API with automatic multi-model failover and retry.
-   * Leverages built-in app key so users and judges never need manual setup.
+   * Responsive timeouts and cooperative coroutine cancellation so user can cancel instantly.
    */
-  private fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
+  private suspend fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
-    val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest")
+    val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-flash-latest")
 
-    val maxRetries = 3
+    val maxRetries = 2
     for (attempt in 1..maxRetries) {
+      kotlinx.coroutines.currentCoroutineContext().ensureActive()
       if (attempt > 1) {
-        val backoff = if (attempt == 2) 800L else 1600L
+        val backoff = 700L
         Log.i(TAG, "Retrying Gemini call after ${backoff}ms backoff (attempt $attempt/$maxRetries)...")
-        try {
-          Thread.sleep(backoff)
-        } catch (_: InterruptedException) {}
+        kotlinx.coroutines.delay(backoff)
       }
 
       for (modelName in modelsToTry) {
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$effectiveKey"
+        var conn: HttpURLConnection? = null
         try {
           val url = URL(endpointUrl)
-          val connection = openInternetConnection(url).apply {
+          conn = openInternetConnection(url).apply {
             requestMethod = "POST"
-            connectTimeout = 12000
-            readTimeout = 20000
+            connectTimeout = 6000
+            readTimeout = 9000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
           }
@@ -317,25 +319,31 @@ class GeminiFlashService(private val context: Context) {
             })
           }
 
-          OutputStreamWriter(connection.outputStream).use { writer ->
+          OutputStreamWriter(conn.outputStream).use { writer ->
             writer.write(requestBody.toString())
             writer.flush()
           }
 
-          val responseCode = connection.responseCode
+          val responseCode = conn.responseCode
           if (responseCode in 200..299) {
-            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            val responseText = conn.inputStream.bufferedReader().use { it.readText() }
             val parsedText = extractContentFromGeminiResponse(responseText)
             if (!parsedText.isNullOrBlank()) {
               Log.i(TAG, "Gemini ($modelName) successfully returned response on attempt $attempt")
               return parsedText
             }
           } else {
-            val errText = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+            val errText = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
             Log.w(TAG, "Gemini ($modelName) HTTP $responseCode: $errText - trying next model")
           }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+          Log.i(TAG, "Gemini ($modelName) call cancelled by user")
+          conn?.disconnect()
+          throw e
         } catch (e: Exception) {
           Log.w(TAG, "Gemini ($modelName) attempt $attempt exception: ${e.message}")
+        } finally {
+          conn?.disconnect()
         }
       }
     }

@@ -107,6 +107,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -855,6 +856,29 @@ class CameraViewModel(
 
   // MARK: - Google Gemini 2.0 Flash Multimodal Visual AI Workflows
 
+  private var geminiScanJob: kotlinx.coroutines.Job? = null
+
+  /**
+   * Immediately aborts any in-flight Gemini visual scan or photo capture and restores glasses Home HUD.
+   */
+  fun cancelGeminiScan() {
+    Log.i(TAG, "cancelGeminiScan: User cancelled Gemini visual scan")
+    geminiScanJob?.cancel()
+    geminiScanJob = null
+    userStoppedStream = true
+    stopStreaming()
+    _uiState.update {
+      it.copy(
+          isGeminiLoading = false,
+          showGeminiDialog = false,
+          geminiErrorMessage = null,
+          geminiObjectResult = null,
+          geminiBillResult = null,
+      )
+    }
+    returnToGlassesHome()
+  }
+
   /**
    * Scans a physical product in view using Google Gemini 2.0 Flash multimodal visual AI.
    * Identifies product details, best merchant prices, and enables 1-tap PayPal capture.
@@ -862,6 +886,7 @@ class CameraViewModel(
   fun onScanObjectClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
     Log.i(TAG, "onScanObjectClicked: Triggering Google Gemini 2.0 Flash visual product search (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     userStoppedStream = false
+    geminiScanJob?.cancel()
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
@@ -890,19 +915,21 @@ class CameraViewModel(
       }
     }
 
-    viewModelScope.launch(Dispatchers.Default) {
+    geminiScanJob = viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35 && !userStoppedStream) {
+          kotlinx.coroutines.currentCoroutineContext().ensureActive()
           if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
             withContext(Dispatchers.Main) { startStreaming() }
           }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val currentStream = stream
-        if (currentStream != null && _uiState.value.isStreaming) {
+        if (currentStream != null && _uiState.value.isStreaming && !userStoppedStream) {
           try {
             Log.i(TAG, "Capturing live photo from glasses camera for Gemini Flash...")
             currentStream.capturePhoto()
@@ -924,9 +951,10 @@ class CameraViewModel(
         withContext(Dispatchers.Main) {
           stopStreaming()
         }
-        kotlinx.coroutines.delay(500)
+        kotlinx.coroutines.delay(400)
       }
 
+      kotlinx.coroutines.currentCoroutineContext().ensureActive()
       val result = geminiFlashService.identifyObject(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { obj ->
@@ -963,6 +991,7 @@ class CameraViewModel(
   fun onScanBillClicked(bitmap: Bitmap? = null, fromGlasses: Boolean = true) {
     Log.i(TAG, "onScanBillClicked: Triggering Google Gemini 2.0 Flash receipt parsing (input bitmap: ${bitmap?.width}x${bitmap?.height}, fromGlasses=$fromGlasses)")
     userStoppedStream = false
+    geminiScanJob?.cancel()
     _uiState.update {
       it.copy(
           isGeminiLoading = true,
@@ -991,19 +1020,21 @@ class CameraViewModel(
       }
     }
 
-    viewModelScope.launch(Dispatchers.Default) {
+    geminiScanJob = viewModelScope.launch(Dispatchers.Default) {
       var targetBitmap: Bitmap? = bitmap
       if (targetBitmap == null && fromGlasses) {
         var waitCount = 0
-        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35) {
+        while ((stream == null || !_uiState.value.isStreaming) && waitCount < 35 && !userStoppedStream) {
+          kotlinx.coroutines.currentCoroutineContext().ensureActive()
           if (_uiState.value.isSessionActive && stream == null && !_uiState.value.isStartingStream) {
             withContext(Dispatchers.Main) { startStreaming() }
           }
           kotlinx.coroutines.delay(200)
           waitCount++
         }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val currentStream = stream
-        if (currentStream != null && _uiState.value.isStreaming) {
+        if (currentStream != null && _uiState.value.isStreaming && !userStoppedStream) {
           try {
             Log.i(TAG, "Capturing live photo from glasses camera for bill parsing...")
             currentStream.capturePhoto()
@@ -1025,9 +1056,10 @@ class CameraViewModel(
         withContext(Dispatchers.Main) {
           stopStreaming()
         }
-        kotlinx.coroutines.delay(500)
+        kotlinx.coroutines.delay(400)
       }
 
+      kotlinx.coroutines.currentCoroutineContext().ensureActive()
       val result = geminiFlashService.parseBill(targetBitmap)
       withContext(Dispatchers.Main) {
         result.onSuccess { bill ->
@@ -1058,7 +1090,7 @@ class CameraViewModel(
   }
 
   fun dismissGeminiDialog() {
-    _uiState.update { it.copy(showGeminiDialog = false) }
+    cancelGeminiScan()
   }
 
   fun executeGeminiObjectPurchase() {
@@ -1273,6 +1305,8 @@ class CameraViewModel(
     Log.i(TAG, "returnToGlassesHome: Resetting to Home display screen")
     userStoppedSession = false
     userStoppedStream = true
+    geminiScanJob?.cancel()
+    geminiScanJob = null
     autoDismissJob?.cancel()
     autoDismissJob = null
     speechListener?.stopListening()
@@ -1287,7 +1321,9 @@ class CameraViewModel(
           glassesDisplayScreen = GlassesDisplayScreen.HOME,
           paymentState = PaymentState.Idle,
           keypadAmount = "",
-          aiQaAnswer = null
+          aiQaAnswer = null,
+          isGeminiLoading = false,
+          showGeminiDialog = false,
       )
     }
     viewModelScope.launch {
@@ -3189,7 +3225,7 @@ class CameraViewModel(
 
                   flexBox(direction = Direction.ROW, gap = 3, padding = 0) {
                     button(
-                        label = "⌨ Keypad Total",
+                        label = "Keypad Total",
                         style = ButtonStyle.SECONDARY,
                         iconName = IconName.SLIDERS_HORIZONTAL,
                         onClick = {
@@ -3470,7 +3506,7 @@ class CameraViewModel(
                       style = ButtonStyle.OUTLINE,
                       iconName = IconName.ARROW_LEFT,
                       onClick = {
-                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                        viewModelScope.launch(Dispatchers.Main) { cancelGeminiScan() }
                       }
                   )
                 } else if (objResult != null) {
@@ -3534,7 +3570,7 @@ class CameraViewModel(
                       style = ButtonStyle.OUTLINE,
                       iconName = IconName.ARROW_LEFT,
                       onClick = {
-                        viewModelScope.launch(Dispatchers.Main) { returnToGlassesHome() }
+                        viewModelScope.launch(Dispatchers.Main) { cancelGeminiScan() }
                       }
                   )
                 } else if (billResult != null) {
