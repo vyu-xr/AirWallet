@@ -6,6 +6,7 @@
 [![Google LiteRT](https://img.shields.io/badge/Google_LiteRT-On--Device_AI_(TFLite)-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/edge/litert)
 [![Meta Wearables](https://img.shields.io/badge/Meta_Wearables_DAT-Display_HUD_|_Camera_|_Speech-0668E1?style=for-the-badge&logo=meta&logoColor=white)](https://wearables.developer.meta.com)
 [![Android](https://img.shields.io/badge/Android-Jetpack_Compose-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
+[![Download APK](https://img.shields.io/badge/Download_APK-v1.0.0-blue?style=for-the-badge&logo=android&logoColor=white)](https://github.com/vyu-xr/AirWallet/releases/tag/v1.0.0)
 
 ---
 
