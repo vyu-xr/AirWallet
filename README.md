@@ -17,7 +17,89 @@ Wearers can look at merchant QR codes or physical products, inspect details dire
 
 ---
 
-## Active Capabilities & Architecture
+## System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Glasses["Meta Ray-Ban Display Smart Glasses"]
+        HUD["Waveguide Display (FlexBox DSL HUD)"]
+        CAM["Camera Sensor (15 FPS HEVC / Photo Capture)"]
+        TOUCH["Temple Touchpad (Tap / Swipe Gestures)"]
+        MIC["Microphone & Speaker (On-Device ASR / TTS Audio)"]
+    end
+
+    subgraph DAT["Meta Wearables DAT SDK Layer"]
+        CORE["DeviceSession & AutoDeviceSelector"]
+        DISP_CAP["Display Capability (sendContent)"]
+        CAM_CAP["Camera Capability (Stream & PhotoData)"]
+        SPEECH_CAP["Speech Capability (Live ASR & TTS)"]
+    end
+
+    subgraph App["AirWallet Android Companion App"]
+        VM["CameraViewModel (StateFlow Reactive Engine)"]
+        UI["Jetpack Compose UI (WalletMainScreen)"]
+        MLKIT["Google ML Kit (Sub-50ms Fast QR Engine)"]
+        FGS["Foreground Streaming Service (WakeLock Protected)"]
+        RETRY["OkHttp 4.12 Client (Google Anycast DNS Fallback)"]
+    end
+
+    subgraph EdgeAI["On-Device AI Engine (Google LiteRT)"]
+        LITERT["financial_analytics.tflite Model"]
+        XNNPACK["XNNPACK Hardware Acceleration Delegate"]
+        FIN_AI["Expense Categorization & Budget Health Scoring"]
+        VOICE_QA["Natural Language Voice Q&A Engine"]
+    end
+
+    subgraph CloudAI["Cloud Multimodal Visual AI (Google Gemini 2.0 Flash)"]
+        GEMINI["Google Gemini 2.0 Flash Endpoint"]
+        PROD_ID["Multimodal Product Identification & Pricing"]
+        BILL_OCR["Optical Receipt Parsing & Itemization"]
+    end
+
+    subgraph PayPal["PayPal Developer Platform"]
+        VAULT["PayPal Vault (Tokenized Payment Credentials)"]
+        ORDERS["Orders v2 (1-Tap Vaulted Capture API)"]
+        INVOICE["Invoicing v2 (Automated Group Bill Dispatch)"]
+        PAYOUTS["Payouts v1 (Voice-Activated Peer Disbursements)"]
+    end
+
+    %% Hardware to DAT
+    HUD <--> DISP_CAP
+    CAM --> CAM_CAP
+    TOUCH --> CORE
+    MIC <--> SPEECH_CAP
+
+    %% DAT to App
+    CORE <--> VM
+    DISP_CAP <--> VM
+    CAM_CAP --> FGS --> VM
+    CAM_CAP --> MLKIT
+    SPEECH_CAP <--> VM
+    VM <--> UI
+
+    %% App to Edge AI
+    VM <--> LITERT
+    LITERT <--> XNNPACK
+    LITERT --> FIN_AI
+    LITERT --> VOICE_QA
+
+    %% App to Cloud AI
+    VM --> RETRY --> GEMINI
+    GEMINI --> PROD_ID --> VM
+    GEMINI --> BILL_OCR --> VM
+
+    %% App to PayPal Gateway
+    VM <--> VAULT
+    VM --> ORDERS
+    VM --> INVOICE
+    VM --> PAYOUTS
+```
+
+![AirWallet Architecture](docs/architecture.jpg)
+
+---
+
+## Active Capabilities & Architecture Breakdown
 
 ### 1. Glance-to-Pay with PayPal Vault (Orders v2)
 - **High-Speed QR Decoding**: Decodes merchant QR codes (`paypal.me`, PayPal Managed Merchant QRs, or point-of-sale barcodes) via low-latency camera capture and Google ML Kit.
@@ -47,9 +129,49 @@ Wearers can look at merchant QR codes or physical products, inspect details dire
 
 ---
 
-## Architecture Diagram
+## Connecting to Meta Smart Glasses & Developer Mode Setup
 
-![AirWallet Architecture](docs/architecture.jpg)
+Follow these steps to configure your Meta Ray-Ban Display smart glasses, enable Developer Mode, and connect them to AirWallet:
+
+### Step 1: Pair Glasses with the Meta Companion App
+1. Ensure your glasses software and companion app are updated to the latest supported versions.
+2. Put the glasses into pairing mode by holding the button on the back of the charging case with the glasses seated inside until the case LED pulses blue.
+3. Open the **Meta View** (or **Meta AI**) app on your mobile device and complete initial Bluetooth pairing.
+
+### Step 2: Enable Developer Mode in the Meta Companion App
+Developer Mode allows third-party applications integrated with the Meta Wearables Device Access Toolkit (DAT) SDK to register, stream camera data, and render onto the waveguide display without requiring submission for Meta App Review.
+
+1. In the **Meta View** (or **Meta AI**) app, tap the **Settings** gear icon.
+2. Scroll to **App Info** (or **About**).
+3. Locate the **App Version** number and **tap it 5 times consecutively**.
+4. A hidden **Developer Mode** toggle will appear on the screen.
+5. Switch the **Developer Mode** toggle to **ON** and tap **Enable** to confirm.
+6. The app is now ready to authorize DAT client applications under **Settings** > **App connections** > **Developer mode apps**.
+
+### Step 3: Connect to Glasses from the AirWallet App
+1. Launch **AirWallet** on your Android phone.
+2. Grant the requested Android permissions when prompted (Bluetooth, Bluetooth Connect, Camera, Microphone).
+3. If this is your first time launching, tap the connection chip or **Start Session**:
+   - AirWallet automatically calls `Wearables.startRegistration(activity)`.
+   - A system authorization screen from Meta View will appear asking to approve the connection.
+   - Tap **Approve / Allow**.
+4. Once registered, AirWallet automatically uses `Wearables.createSession(AutoDeviceSelector())` to find your paired smart glasses:
+   - The device status indicator changes to **Connected** (`Meta RB Display 005R`).
+   - AirWallet starts the session (`session.start()`).
+   - Upon reaching `DeviceSessionState.STARTED`, AirWallet attaches the Display capability (`session.addDisplay(DisplayConfiguration())`).
+5. Put on your glasses: the green waveguide HUD will illuminate displaying the **AirWallet Home Screen**:
+   - **Scan QR Code** (starts 15 FPS camera stream with instant QR payment capture)
+   - **Send Money to Friend** (peer payouts via PayPal Payouts v1)
+   - **Spending Analytics** (on-device LiteRT financial intelligence)
+   - **Scan Product** (multimodal visual product search and 1-tap checkout)
+   - **Scan Paper Bill** (receipt OCR and group bill split)
+6. Speech recognition attaches sequentially, enabling hands-free voice Q&A and audio prompts through the glasses speakers.
+
+### Step 4: Testing Without Physical Glasses (MockDeviceKit)
+If evaluating without physical glasses hardware:
+1. Tap the **Debug / Menu** icon in AirWallet and select **MockDeviceKit**.
+2. Tap **Pair Ray-Ban Meta** and toggle **Donned** to ON.
+3. You can inject sample camera frames, trigger capacitive touch taps, and verify the full payment and AI pipeline directly on your phone.
 
 ---
 
@@ -75,37 +197,6 @@ Wearers can look at merchant QR codes or physical products, inspect details dire
 | **PayPal Invoicing v2** | `POST /v2/invoicing/invoices` <br> `POST /v2/invoicing/invoices/{id}/send` | `PayPalInvoiceService.kt` |
 | **PayPal Payouts v1** | `POST /v1/payments/payouts` | `PayPalPayoutService.kt` |
 | **PayPal Vault** | Vaulted credential tokens | `PayPalVaultRepository.kt` |
-
----
-
-## Testing Guide
-
-AirWallet can be evaluated **with physical Meta Ray-Ban Display smart glasses** or **on an Android device** using the built-in MockDeviceKit emulator and mobile camera scanner.
-
-### Option A: Testing on Android Device (No Glasses Required)
-1. **Clone and build**:
-   ```bash
-   git clone https://github.com/your-username/AirWallet.git
-   cd AirWallet
-   ./gradlew assembleDebug
-   ```
-2. **Install APK**:
-   ```bash
-   adb install -r app/build.nosync/outputs/apk/debug/app-debug.apk
-   ```
-3. **Run AirWallet**:
-   - Tap **"Scan QR (Mobile)"** or switch to the **Scan** tab.
-   - Point the camera at any test QR code below.
-   - The app parses the merchant payload and executes the 1-Tap PayPal payment.
-   - Use the **Scan Object** and **Scan Bill** triggers to test multimodal visual AI.
-   - Visit the **Spending Analytics** tab to test on-device Google LiteRT financial intelligence.
-
-### Option B: Testing with Meta Ray-Ban Display Smart Glasses
-1. Enable **Developer Mode** in the Meta View companion app.
-2. Pair the glasses via Bluetooth and open AirWallet on the phone.
-3. Tap **"Connect"** to initialize the DAT device session.
-4. Put on the glasses: the **AirWallet HUD** illuminates with Home options (Scan QR Code, Send Money, Spending Analytics, Scan Product, Scan Paper Bill).
-5. Glance at a merchant QR code or physical product and tap the temple touchpad to buy with vaulted PayPal credentials.
 
 ---
 
