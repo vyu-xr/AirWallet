@@ -16,9 +16,6 @@
 //   calling Wearables.startRegistration()
 // - CameraScreen: When registered (uiState.isRegistered = true) Shows the full-bleed camera screen
 //   that walks the SDK lifecycle: start session, start preview, capture/record, stop, end session.
-//
-// The scaffold also provides a debug menu (in DEBUG builds) that gives access to
-// MockDeviceKitScreen for testing DAT functionality without physical devices.
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 

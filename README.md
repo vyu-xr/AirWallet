@@ -91,12 +91,6 @@ Developer Mode allows third-party applications integrated with the Meta Wearable
    - **Scan Paper Bill** (receipt OCR and group bill split)
 6. Speech recognition attaches sequentially, enabling hands-free voice Q&A and audio prompts through the glasses speakers.
 
-### Step 4: Testing Without Physical Glasses (MockDeviceKit)
-If evaluating without physical glasses hardware:
-1. Tap the **Debug / Menu** icon in AirWallet and select **MockDeviceKit**.
-2. Tap **Pair Ray-Ban Meta** and toggle **Donned** to ON.
-3. You can inject sample camera frames, trigger capacitive touch taps, and verify the full payment and AI pipeline directly on your phone.
-
 ---
 
 ## Tech Stack & SDKs Utilized
@@ -163,8 +157,7 @@ AirWallet/
 │   ├── ui/
 │   │   ├── WalletMainScreen.kt              # Jetpack Compose companion application
 │   │   ├── CameraScreen.kt                  # Camera scanner view & viewfinder
-│   │   ├── CameraAccessScaffold.kt          # Root navigation & error handling
-│   │   └── MockDeviceKitScreen.kt           # MockDeviceKit emulator for no-hardware testing
+│   │   └── CameraAccessScaffold.kt          # Root navigation & error handling
 │   └── stream/
 │       ├── StreamingService.kt              # Foreground service for stream stability
 │       └── HevcDecoder.kt                   # Low-latency hardware HEVC video decoder

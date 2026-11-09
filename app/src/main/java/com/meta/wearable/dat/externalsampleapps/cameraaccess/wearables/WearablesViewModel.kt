@@ -12,7 +12,6 @@
 // - Device registration and unregistration using the DAT SDK
 // - Permission management for wearable devices
 // - Device discovery and state management
-// - Integration with MockDeviceKit for testing
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables
 

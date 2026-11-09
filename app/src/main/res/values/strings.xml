@@ -71,32 +71,4 @@
     <string name="notification_channel_description" description="Streaming notification channel description">Notifications for active camera streaming</string>
     <string name="notification_title" description="Streaming notification title">Camera streaming</string>
     <string name="notification_body" description="Streaming notification body">Streaming from your glasses.</string>
-
-    <!-- Mock Device Kit Screen -->
-    <string name="mock_device_kit_title" description="MockDeviceKit title">MockDeviceKit</string>
-    <string name="mock_device_name" description="Display name for a paired mock device">Mock glasses</string>
-    <string name="devices_paired_count" description="Number of devices paired"><xliff:g id="count">%1$d</xliff:g> device(s) paired</string>
-    <string name="mock_device_kit_description" description="MockDeviceKit description">This screen simulates devices and mocks their capabilities and states.</string>
-    <string name="enable_mock_device_kit" description="Enable MockDeviceKit button">Enable MockDeviceKit</string>
-    <string name="disable_mock_device_kit" description="Disable MockDeviceKit button">Disable MockDeviceKit</string>
-    <string name="pair_rayban_meta" description="Pair Ray-Ban Meta">Pair Ray-Ban Meta</string>
-    <string name="unpair" description="Unpair">Unpair</string>
-    <string name="select_image" description="Select image">Select image</string>
-    <string name="has_captured_image" description="Has captured image">Has captured image</string>
-    <string name="front_camera" description="Front camera">Front camera</string>
-    <string name="back_camera" description="Back camera">Back camera</string>
-    <string name="camera_source_label" description="Camera source dropdown label">Camera source: <xliff:g id="source">%1$s</xliff:g></string>
-    <string name="camera_source_none" description="Camera source none">None</string>
-    <string name="camera_source_video_file" description="Camera source video file">Video file</string>
-    <string name="power" description="Power toggle label">Power</string>
-    <string name="donned" description="Donned toggle label">Donned</string>
-    <string name="unfolded" description="Unfolded toggle label">Unfolded</string>
-    <string name="captouch_section_title" description="Section label for the capacitive touch gesture buttons">Capacitive touch events</string>
-    <string name="captouch_tap" description="Button that simulates a single tap gesture on the glasses">Tap</string>
-    <string name="captouch_tap_and_hold" description="Button that simulates a tap-and-hold gesture on the glasses">Tap and hold</string>
-
-    <!-- Camera Permission Alert (MockDeviceKit camera source) -->
-    <string name="camera_permission_alert_title" description="Camera permission alert title">Camera access required</string>
-    <string name="camera_permission_alert_message" description="Camera permission alert message">Camera access was denied. Enable it in Settings to use the camera source.</string>
-    <string name="camera_permission_open_settings" description="Camera permission open settings button">Open Settings</string>
 </resources>
