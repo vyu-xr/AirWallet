@@ -124,14 +124,17 @@ If evaluating without physical glasses hardware:
 
 ---
 
-## Test QR Payloads
+## Test Scannable QR Codes
 
-| Merchant / Purpose | Amount | Test QR Payload URL |
-| :--- | :---: | :--- |
-| **Coffee Shop** | `$15.00` | `https://paypal.me/CoffeeShop/15` |
-| **Retail Merchant** | `$25.00` | `https://www.paypal.com/qrcodes/managed/demo?amount=25.00&currencyCode=USD` |
-| **Flexible Split** | Custom | `https://paypal.me/LunchBistro` |
-| **Dinner Group Tab** | `$45.00` | `https://paypal.me/ItalianKitchen/45` |
+Point your Meta Ray-Ban Display smart glasses or mobile camera directly at these QR codes to test 1-tap checkout, flexible splits, and invoices:
+
+| Merchant / Purpose | Amount | Scannable QR Code |
+| :--- | :---: | :---: |
+| **Coffee Shop** | `$15.00` | <img src="docs/qr/paypal_coffee_15.png" width="140" alt="Coffee Shop $15.00 QR"> |
+| **Retail Merchant** | `$25.00` | <img src="docs/qr/paypal_merchant_25.png" width="140" alt="Retail Merchant $25.00 QR"> |
+| **Flexible Split** | Custom | <img src="docs/qr/paypal_lunch_noamt.png" width="140" alt="Flexible Split QR"> |
+| **Dinner Group Tab** | `$45.00` | <img src="docs/qr/paypal_split_bill_45.png" width="140" alt="Dinner Group Tab $45.00 QR"> |
+| **Peer Payout** | Custom | <img src="docs/qr/venmo_qr.png" width="140" alt="Peer Payout QR"> |
 
 ---
 
