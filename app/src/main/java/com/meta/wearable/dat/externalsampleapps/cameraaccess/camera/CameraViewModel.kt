@@ -866,7 +866,6 @@ class CameraViewModel(
     geminiScanJob?.cancel()
     geminiScanJob = null
     userStoppedStream = true
-    stopStreaming()
     _uiState.update {
       it.copy(
           isGeminiLoading = false,
@@ -948,17 +947,6 @@ class CameraViewModel(
         } else {
           Log.w(TAG, "Glasses stream not ready after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
-
-        // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
-        withContext(Dispatchers.Main) {
-          stopStreaming()
-        }
-        var teardownWaited = 0
-        while (teardownWaited < 2000 && (_uiState.value.streamState != StreamState.STOPPED || camera != null) && !userStoppedStream) {
-          kotlinx.coroutines.delay(100)
-          teardownWaited += 100
-        }
-        kotlinx.coroutines.delay(400)
       }
 
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -1074,17 +1062,6 @@ class CameraViewModel(
         } else {
           Log.w(TAG, "Glasses stream not ready for bill parsing after ${waitCount * 200}ms (stream=${stream != null}, isStreaming=${_uiState.value.isStreaming})")
         }
-
-        // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
-        withContext(Dispatchers.Main) {
-          stopStreaming()
-        }
-        var teardownWaited = 0
-        while (teardownWaited < 2000 && (_uiState.value.streamState != StreamState.STOPPED || camera != null) && !userStoppedStream) {
-          kotlinx.coroutines.delay(100)
-          teardownWaited += 100
-        }
-        kotlinx.coroutines.delay(400)
       }
 
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
@@ -2442,11 +2419,6 @@ class CameraViewModel(
     } catch (e: Exception) {
       Log.w(TAG, "Exception during camera.stop(): ${e.message}")
     }
-    try {
-      capability?.close()
-    } catch (e: Exception) {
-      Log.w(TAG, "Exception during camera.close(): ${e.message}")
-    }
   }
 
   // MARK: - Capture
@@ -2873,14 +2845,30 @@ class CameraViewModel(
         return
       } else {
         Log.i(TAG, "Display capability is in ${_uiState.value.displayState}; cleaning up dead handle to re-attach fresh...")
-        try {
-          currentDisplay.stop()
-          currentDisplay.close()
-        } catch (ignored: Throwable) {}
-        this.display = null
-        try {
-          session.removeDisplay()
-        } catch (ignored: Throwable) {}
+        viewModelScope.launch {
+          try {
+            currentDisplay.stop()
+          } catch (ignored: Throwable) {}
+          try {
+            session.removeDisplay()
+          } catch (ignored: Throwable) {}
+          this@CameraViewModel.display = null
+          delay(400)
+          if (session != null && _uiState.value.isSessionActive && !userStoppedSession) {
+            session.addDisplay(DisplayConfiguration()).fold(
+                onSuccess = { createdDisplay ->
+                  Log.i(TAG, "Display capability re-attached successfully")
+                  _uiState.update { it.copy(isDisplayCapable = true) }
+                  this@CameraViewModel.display = createdDisplay
+                  observeDisplay(createdDisplay)
+                },
+                onFailure = { err, _ ->
+                  Log.w(TAG, "Re-attach Display failed: ${err.description}")
+                }
+            )
+          }
+        }
+        return
       }
     }
 
@@ -3003,7 +2991,9 @@ class CameraViewModel(
         val currentPaymentState = _uiState.value.paymentState
         Log.i(TAG, "renderGlassesScreen: sending content for screen=$currentScreen, paymentState=${currentPaymentState::class.simpleName}")
 
-        activeDisplay.sendContent {
+        try {
+          kotlinx.coroutines.withTimeout(3500) {
+            activeDisplay.sendContent {
           flexBox(direction = Direction.COLUMN, gap = 8) {
             when (currentScreen) {
               GlassesDisplayScreen.HOME -> {
@@ -3678,6 +3668,10 @@ class CameraViewModel(
             onSuccess = { Log.i(TAG, "Glasses content ($currentScreen) sent to display successfully") },
             onFailure = { error, _ -> Log.w(TAG, "Display sendContent failure: ${error.description}") }
         )
+          }
+        } catch (t: Throwable) {
+          Log.w(TAG, "Display sendContent error: ${t.message}")
+        }
       }
     }
   }
@@ -3939,11 +3933,6 @@ class CameraViewModel(
         currentDisplay.stop()
       } catch (e: Exception) {
         Log.w(TAG, "Error stopping display: ${e.message}")
-      }
-      try {
-        currentDisplay.close()
-      } catch (e: Exception) {
-        Log.w(TAG, "Error closing display: ${e.message}")
       }
     }
 
