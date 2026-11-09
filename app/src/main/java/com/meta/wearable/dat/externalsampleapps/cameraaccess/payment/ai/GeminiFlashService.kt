@@ -213,9 +213,9 @@ class GeminiFlashService(private val context: Context) {
   /**
    * Encodes a bitmap into a compressed Base64 string for efficient network transport.
    */
-  private fun bitmapToBase64(bitmap: Bitmap, quality: Int = 80): String {
+  private fun bitmapToBase64(bitmap: Bitmap, quality: Int = 75): String {
     val outputStream = ByteArrayOutputStream()
-    val maxDim = 1024
+    val maxDim = 768
     val scaledBitmap = if (bitmap.width > maxDim || bitmap.height > maxDim) {
       val ratio = Math.min(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
       Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
@@ -224,6 +224,7 @@ class GeminiFlashService(private val context: Context) {
     }
     scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
     val bytes = outputStream.toByteArray()
+    Log.i(TAG, "Compressed frame for Gemini: ${scaledBitmap.width}x${scaledBitmap.height}, payload size: ${bytes.size / 1024} KB")
     return Base64.encodeToString(bytes, Base64.NO_WRAP)
   }
 
@@ -236,35 +237,52 @@ class GeminiFlashService(private val context: Context) {
   }
 
   /**
-   * Opens an HttpURLConnection bound explicitly to an active Internet-capable network.
-   * This bypasses any local P2P or Wi-Fi Direct network created by smart glasses that lacks Internet access.
+   * Opens an HttpURLConnection using the system's active Internet route.
+   * Filters out restricted carrier interfaces (such as IMS/VoLTE) to ensure reliable DNS resolution.
    */
   private fun openInternetConnection(url: URL): HttpURLConnection {
     try {
       val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
       if (cm != null) {
+        val activeNet = cm.activeNetwork
+        if (activeNet != null) {
+          val caps = cm.getNetworkCapabilities(activeNet)
+          if (caps != null &&
+              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
+              !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS)) {
+            return (activeNet.openConnection(url) as HttpURLConnection).apply {
+              setRequestProperty("Connection", "keep-alive")
+              setRequestProperty("Accept", "application/json")
+            }
+          }
+        }
+
         val validatedNet = cm.allNetworks.firstOrNull { net ->
           val caps = cm.getNetworkCapabilities(net) ?: return@firstOrNull false
           caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+              caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
+              !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_IMS) &&
+              (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
         }
-        val internetNet = validatedNet ?: cm.allNetworks.firstOrNull { net ->
-          val caps = cm.getNetworkCapabilities(net) ?: return@firstOrNull false
-          caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        } ?: cm.activeNetwork
-
-        if (internetNet != null) {
-          return internetNet.openConnection(url) as HttpURLConnection
+        if (validatedNet != null) {
+          return (validatedNet.openConnection(url) as HttpURLConnection).apply {
+            setRequestProperty("Connection", "keep-alive")
+            setRequestProperty("Accept", "application/json")
+          }
         }
       }
     } catch (e: Exception) {
-      Log.w(TAG, "Failed to resolve internet network, using default openConnection: ${e.message}")
+      Log.w(TAG, "Network-specific openConnection failed, using default: ${e.message}")
     }
-    return url.openConnection() as HttpURLConnection
+    return (url.openConnection() as HttpURLConnection).apply {
+      setRequestProperty("Connection", "keep-alive")
+      setRequestProperty("Accept", "application/json")
+    }
   }
 
   /**
-   * Direct native call to Google Gemini Flash API with automatic multi-model failover and retry.
+   * Direct native call to Google Gemini Flash API with automatic multi-model failover, DNS fallback, and retry.
    * Responsive timeouts and cooperative coroutine cancellation so user can cancel instantly.
    */
   private suspend fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
@@ -275,7 +293,7 @@ class GeminiFlashService(private val context: Context) {
     for (attempt in 1..maxRetries) {
       kotlinx.coroutines.currentCoroutineContext().ensureActive()
       if (attempt > 1) {
-        val backoff = 700L
+        val backoff = 500L
         Log.i(TAG, "Retrying Gemini call after ${backoff}ms backoff (attempt $attempt/$maxRetries)...")
         kotlinx.coroutines.delay(backoff)
       }
@@ -288,10 +306,11 @@ class GeminiFlashService(private val context: Context) {
           val url = URL(endpointUrl)
           conn = openInternetConnection(url).apply {
             requestMethod = "POST"
-            connectTimeout = 6000
-            readTimeout = 9000
+            connectTimeout = 5000
+            readTimeout = 8000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
           }
 
           val requestBody = JSONObject().apply {
@@ -319,9 +338,26 @@ class GeminiFlashService(private val context: Context) {
             })
           }
 
-          OutputStreamWriter(conn.outputStream).use { writer ->
-            writer.write(requestBody.toString())
-            writer.flush()
+          try {
+            OutputStreamWriter(conn.outputStream).use { writer ->
+              writer.write(requestBody.toString())
+              writer.flush()
+            }
+          } catch (dnsEx: java.net.UnknownHostException) {
+            Log.w(TAG, "DNS resolution failed on bound socket, retrying via raw default openConnection: ${dnsEx.message}")
+            conn.disconnect()
+            conn = (url.openConnection() as HttpURLConnection).apply {
+              requestMethod = "POST"
+              connectTimeout = 5000
+              readTimeout = 8000
+              doOutput = true
+              setRequestProperty("Content-Type", "application/json")
+              setRequestProperty("Accept", "application/json")
+            }
+            OutputStreamWriter(conn.outputStream).use { writer ->
+              writer.write(requestBody.toString())
+              writer.flush()
+            }
           }
 
           val responseCode = conn.responseCode

@@ -32,6 +32,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.error.ErrorCategory
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.error.ErrorSeverity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -4128,9 +4129,17 @@ fun GeminiResultDialog(
     }
   }
 
+  BackHandler(enabled = true) {
+    cameraViewModel.cancelGeminiScan()
+  }
+
   Dialog(
-      onDismissRequest = onDismiss,
-      properties = DialogProperties(usePlatformDefaultWidth = false)
+      onDismissRequest = { cameraViewModel.cancelGeminiScan() },
+      properties = DialogProperties(
+          dismissOnBackPress = true,
+          dismissOnClickOutside = true,
+          usePlatformDefaultWidth = false
+      )
   ) {
     Surface(
         modifier = Modifier
@@ -4193,7 +4202,7 @@ fun GeminiResultDialog(
             IconButton(onClick = onOpenApiKeyDialog, modifier = Modifier.size(32.dp)) {
               Icon(Icons.Default.Key, contentDescription = "API Key", tint = AppColor.TextSecondary, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = { cameraViewModel.cancelGeminiScan() }, modifier = Modifier.size(32.dp)) {
               Icon(Icons.Default.Close, contentDescription = "Close", tint = AppColor.TextSecondary, modifier = Modifier.size(18.dp))
             }
           }
@@ -4605,6 +4614,18 @@ fun GeminiResultDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "object") AppColor.Coral else AppColor.Lime),
             ) {
               Text("Try Again", color = if (activeTab == "object") Color.White else AppColor.TextInverted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+
+            OutlinedButton(
+                onClick = { cameraViewModel.cancelGeminiScan() },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color(0xFF555555)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColor.TextSecondary)
+            ) {
+              Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Cancel & Return to Home", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
           }
         }

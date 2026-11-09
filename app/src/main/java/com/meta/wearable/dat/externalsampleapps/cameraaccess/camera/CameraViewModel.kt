@@ -874,8 +874,10 @@ class CameraViewModel(
           geminiErrorMessage = null,
           geminiObjectResult = null,
           geminiBillResult = null,
+          glassesDisplayScreen = GlassesDisplayScreen.HOME,
       )
     }
+    voicePrompter.speak("Scan cancelled.")
     returnToGlassesHome()
   }
 
@@ -950,6 +952,11 @@ class CameraViewModel(
         // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
         withContext(Dispatchers.Main) {
           stopStreaming()
+        }
+        var teardownWaited = 0
+        while (teardownWaited < 2000 && (_uiState.value.streamState != StreamState.STOPPED || camera != null) && !userStoppedStream) {
+          kotlinx.coroutines.delay(100)
+          teardownWaited += 100
         }
         kotlinx.coroutines.delay(400)
       }
@@ -1055,6 +1062,11 @@ class CameraViewModel(
         // Stop camera stream immediately to unblock Wi-Fi Direct and restore device Internet routing
         withContext(Dispatchers.Main) {
           stopStreaming()
+        }
+        var teardownWaited = 0
+        while (teardownWaited < 2000 && (_uiState.value.streamState != StreamState.STOPPED || camera != null) && !userStoppedStream) {
+          kotlinx.coroutines.delay(100)
+          teardownWaited += 100
         }
         kotlinx.coroutines.delay(400)
       }
@@ -2943,8 +2955,15 @@ class CameraViewModel(
    * 5. PAYMENT: Dynamic amount keypad, confirmation, and success with 'Return to Home' button
    */
   fun renderGlassesScreen() {
-    val activeDisplay = display ?: return
-    if (_uiState.value.displayState != DisplayState.STARTED) return
+    val activeDisplay = display
+    if (activeDisplay == null || _uiState.value.displayState != DisplayState.STARTED) {
+      val s = session
+      if (s != null && _uiState.value.isSessionActive && isDisplayCapableDevice(s) && _uiState.value.displayState != DisplayState.STARTING) {
+        Log.i(TAG, "renderGlassesScreen: display not active (${_uiState.value.displayState}), scheduling attachment...")
+        attachDisplayCapability(s)
+      }
+      return
+    }
 
     viewModelScope.launch(Dispatchers.Main) {
       displayRenderMutex.withLock {
