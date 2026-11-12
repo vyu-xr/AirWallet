@@ -4639,7 +4639,8 @@ fun GeminiApiKeyDialog(
     cameraViewModel: CameraViewModel,
     onDismiss: () -> Unit,
 ) {
-  var keyText by remember { mutableStateOf(cameraViewModel.geminiFlashService.getApiKey()) }
+  val hasActiveKey = cameraViewModel.geminiFlashService.getApiKey().isNotBlank()
+  var keyText by remember { mutableStateOf("") }
 
   AlertDialog(
       onDismissRequest = onDismiss,
@@ -4656,15 +4657,25 @@ fun GeminiApiKeyDialog(
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-              text = "Status: Pre-configured & Active (Embedded Visual AI). The API key is securely embedded app-side so neither you nor judges need to enter credentials or select services.",
-              color = AppColor.Lime,
+              text = if (hasActiveKey) {
+                "Status: Active (Visual AI Configured). You can optionally override the API key below."
+              } else {
+                "Status: API Key Required. Enter a Google Gemini API key below or set GEMINI_API_KEY in local.properties."
+              },
+              color = if (hasActiveKey) AppColor.Lime else AppColor.Coral,
               fontSize = 12.sp,
               lineHeight = 16.sp,
           )
           OutlinedTextField(
               value = keyText,
               onValueChange = { keyText = it },
-              placeholder = { Text("Pre-configured on app-side (Active)", color = AppColor.TextMuted, fontSize = 11.sp) },
+              placeholder = {
+                Text(
+                    if (hasActiveKey) "Active (enter new key to override)" else "Paste Gemini API key here",
+                    color = AppColor.TextMuted,
+                    fontSize = 11.sp,
+                )
+              },
               modifier = Modifier.fillMaxWidth(),
               singleLine = true,
               colors = OutlinedTextFieldDefaults.colors(

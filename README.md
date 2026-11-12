@@ -34,7 +34,7 @@ Wearers can look at merchant QR codes or physical products, inspect details dire
 ### 2. Multimodal Visual AI (Google Gemini 2.0 Flash)
 - **Visual Product Search & 1-Tap Checkout**: Point the glasses camera at any physical product. Google Gemini 2.0 Flash multimodal vision identifies the product name, estimated price, and merchant, instantly populating a 1-tap PayPal purchase option on both the glasses HUD and the companion app.
 - **Optical Receipt Itemization**: Point the glasses at any paper dining receipt or retail invoice. Gemini Flash parses merchant name, line items, tax, and grand total, preparing an automated multi-party split dispatched through PayPal Invoicing v2.
-- **Embedded Credentials & Anycast DNS Resilience**: Pre-configured app-side credentials with OkHttp Google Anycast DNS fallback (`172.217.115.4`, `142.250.193.138`, `142.250.193.10`) ensure network requests succeed uninterrupted alongside active smart glasses Bluetooth streaming.
+- **Build-Time Key Injection & Anycast DNS Resilience**: Supports build-time `GEMINI_API_KEY` injection via `local.properties` (and runtime configuration in Settings), paired with OkHttp Google Anycast DNS fallback (`172.217.115.4`, `142.250.193.138`, `142.250.193.10`) so network requests succeed uninterrupted alongside active smart glasses Bluetooth streaming.
 
 ### 3. On-Device Financial Intelligence (Google LiteRT)
 - **Private Edge Intelligence**: Employs an on-device TensorFlow Lite model (`financial_analytics.tflite`) with XNNPACK acceleration to categorize real-time spending, calculate budget health scores, and forecast expenditure trends.

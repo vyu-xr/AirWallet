@@ -6,7 +6,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+val localProperties = Properties().apply {
+  val localPropsFile = rootProject.file("local.properties")
+  if (localPropsFile.exists()) {
+    localPropsFile.inputStream().use { load(it) }
+  }
+}
+val geminiApiKey: String = (localProperties.getProperty("GEMINI_API_KEY")
+    ?: System.getenv("GEMINI_API_KEY")
+    ?: "").trim().removeSurrounding("\"")
 
 plugins {
   alias(libs.plugins.android.application)
@@ -40,6 +51,8 @@ android {
     // in Wearables Developer Center
     manifestPlaceholders["mwdat_application_id"] = "2624968554607531"
     manifestPlaceholders["mwdat_client_token"] = "AR|2624968554607531|cdc91fb1e0eccde8586eeb106f2ddfc8"
+
+    buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
 
     ndk {
       abiFilters += listOf("arm64-v8a")

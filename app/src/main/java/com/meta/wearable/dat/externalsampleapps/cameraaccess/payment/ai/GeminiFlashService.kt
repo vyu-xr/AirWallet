@@ -13,6 +13,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.BuildConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.payment.paypal.PayPalOrderItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -78,8 +79,8 @@ class GeminiFlashService(private val context: Context) {
     private const val KEY_BASE_URL = "gemini_base_url"
     private const val KEY_MODEL = "gemini_model"
 
-    // App-side built-in API key: zero setup or client-side configuration required
-    const val APP_BUILTIN_API_KEY = "AQ.Ab8RN6KXe1FkSqkE5DqxF0FHqPRSphmA1s8NF65J-WUbOetDFg"
+    // App-side API key injected at build time from local.properties (never committed to git)
+    val APP_BUILTIN_API_KEY: String get() = BuildConfig.GEMINI_API_KEY
     const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
     const val DEFAULT_MODEL = "gemini-flash-lite-latest"
   }
@@ -277,6 +278,10 @@ class GeminiFlashService(private val context: Context) {
    */
   private suspend fun callGeminiApi(apiKey: String, base64Image: String, textPrompt: String): String? {
     val effectiveKey = apiKey.ifBlank { APP_BUILTIN_API_KEY }
+    if (effectiveKey.isBlank()) {
+      Log.w(TAG, "Gemini API key is not configured. Set GEMINI_API_KEY in local.properties or Settings.")
+      return null
+    }
     val modelsToTry = listOf("gemini-flash-lite-latest", "gemini-flash-latest")
 
     val requestJson = JSONObject().apply {
